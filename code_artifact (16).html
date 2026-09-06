@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>مراعي - إدارة الحلال</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+        
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #fcfaf7;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        /* Custom Animations */
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .slide-up { animation: slideUp 0.4s ease-out forwards; }
+        .zoom-in { animation: zoomIn 0.3s ease-out forwards; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        /* Hide scrollbar for tabs */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Form elements reset */
+        input:focus, select:focus { outline: none; box-shadow: 0 0 0 2px #a78bfa; }
+        .emerald-focus:focus { box-shadow: 0 0 0 2px #34d399; }
+        .blue-focus:focus { box-shadow: 0 0 0 2px #60a5fa; }
+        .orange-focus:focus { box-shadow: 0 0 0 2px #fb923c; }
+        .rose-focus:focus { box-shadow: 0 0 0 2px #fb7185; }
+        
+        /* Utility */
+        .hidden { display: none !important; }
+        .active-tab-btn { color: #15803d !important; font-weight: 900 !important; transform: scale(1.1); }
+        .ltr { direction: ltr; }
+    </style>
+</head>
+<body class="pb-32 text-stone-800">
+
+    <!-- Inventory Detail Modal (Long Press) -->
+    <div id="inventory-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-6 bg-stone-900/60 backdrop-blur-md fade-in">
+        <div class="bg-white w-full max-w-sm rounded-[3rem] shadow-2xl p-8 border border-white/20 zoom-in">
+            <h3 class="text-xl font-black text-stone-800 flex items-center gap-2 mb-6">
+                <i class="fa-solid fa-chart-pie text-green-600 text-2xl"></i> جرد القطيع الحالي
+            </h3>
+            <div id="inventory-modal-content" class="space-y-3 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                <!-- Injected via JS -->
+            </div>
+            <p class="text-center text-[10px] font-black text-stone-400 mt-6 animate-pulse uppercase tracking-widest">أفلت للإغلاق</p>
+        </div>
+    </div>
+
+    <!-- Calculator Modal -->
+    <div id="calc-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-6 bg-stone-900/40 backdrop-blur-md fade-in">
+        <div class="bg-white w-full max-w-xs rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 zoom-in">
+            <div class="p-8 bg-stone-800 text-left min-h-[140px] flex flex-col justify-end relative">
+                <button id="close-calc" class="absolute top-6 right-6 text-stone-500 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+                <div id="calc-display" class="text-xl font-black text-white/40 ltr truncate mb-1">0</div>
+                <div id="calc-preview" class="text-4xl font-black text-white ltr">0</div>
+            </div>
+            <div class="p-6 grid grid-cols-4 gap-3 bg-white" id="calc-buttons">
+                <!-- Buttons injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-[#fcfaf7]/80 backdrop-blur-md px-6 py-6 flex justify-between items-center border-b border-stone-100 shadow-sm">
+        <div>
+            <h1 class="text-2xl font-black text-stone-800 tracking-tighter">مـراعي</h1>
+            <p id="header-subtitle" class="text-[10px] text-stone-400 font-bold uppercase tracking-[0.2em]">لوحة المتابعة</p>
+        </div>
+        <button id="open-calc" class="w-12 h-12 rounded-2xl bg-white border border-stone-100 flex items-center justify-center shadow-sm active:scale-95 transition-all text-stone-700 text-xl">
+            <i class="fa-solid fa-calculator"></i>
+        </button>
+    </header>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 w-full bg-white/95 backdrop-blur-xl border-t border-stone-100 px-1 py-3 flex justify-around items-center z-50 shadow-lg overflow-x-auto no-scrollbar">
+        <button data-tab="dashboard" class="nav-btn active-tab-btn flex flex-col items-center min-w-[60px] transition-all text-stone-400 font-bold">
+            <i class="fa-solid fa-border-all text-[20px]"></i><span class="text-[10px] mt-1.5">الرئيسية</span>
+        </button>
+        <button data-tab="purchases" class="nav-btn flex flex-col items-center min-w-[60px] transition-all text-stone-400 font-bold">
+            <i class="fa-solid fa-truck-ramp-box text-[20px]"></i><span class="text-[10px] mt-1.5">المخزون</span>
+        </button>
+        <button data-tab="expenses" class="nav-btn flex flex-col items-center min-w-[60px] transition-all text-stone-400 font-bold">
+            <i class="fa-solid fa-receipt text-[20px]"></i><span class="text-[10px] mt-1.5">العمليات</span>
+        </button>
+        <button data-tab="births" class="nav-btn flex flex-col items-center min-w-[60px] transition-all text-stone-400 font-bold">
+            <i class="fa-solid fa-paw text-[20px]"></i><span class="text-[10px] mt-1.5">المواليد</span>
+        </button>
+        <button data-tab="sales" class="nav-btn flex flex-col items-center min-w-[60px] transition-all text-stone-400 font-bold">
+            <i class="fa-solid fa-cart-shopping text-[20px]"></i><span class="text-[10px] mt-1.5">المبيعات</span>
+        </button>
+        <button data-tab="reports" class="nav-btn flex flex-col items-center min-w-[60px] transition-all text-stone-400 font-bold">
+            <i class="fa-solid fa-chart-column text-[20px]"></i><span class="text-[10px] mt-1.5">التقارير</span>
+        </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main id="main-content" class="px-5 py-6 max-w-5xl mx-auto space-y-8">
+        
+        <!-- Tab: Dashboard -->
+        <section id="tab-dashboard" class="tab-section space-y-8 fade-in">
+            <!-- Profit Card -->
+            <div id="dash-profit-card" class="p-8 rounded-[3rem] shadow-2xl relative overflow-hidden transition-all duration-1000 bg-gradient-to-br from-emerald-600 to-green-800 shadow-green-100">
+                <div class="relative z-10 text-white text-center md:text-right">
+                    <span class="text-[11px] font-black opacity-80 uppercase tracking-widest">صافي الأرباح الفعلية</span>
+                    <h2 class="text-5xl font-black mt-2 tracking-tighter"><span id="dash-profit">0</span> <span class="text-xl">﷼</span></h2>
+                    <div class="flex justify-center md:justify-start gap-4 mt-6">
+                        <div class="bg-white/15 px-4 py-2.5 rounded-2xl text-[10px] font-black tracking-widest uppercase">المبيعات: <span id="dash-sales">0</span> ﷼</div>
+                        <div class="bg-white/15 px-4 py-2.5 rounded-2xl text-[10px] font-black tracking-widest uppercase">التكاليف: <span id="dash-costs">0</span> ﷼</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white p-6 rounded-[2.2rem] border border-stone-100 shadow-sm text-center">
+                    <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-[1.2rem] flex items-center justify-center mx-auto mb-3 text-xl"><i class="fa-solid fa-sack-dollar"></i></div>
+                    <p class="text-[10px] font-black text-stone-400 uppercase tracking-widest">رأس المال</p>
+                    <p class="text-xl font-black text-stone-800 mt-1"><span id="dash-capital">0</span> ﷼</p>
+                </div>
+                <div id="long-press-target" class="bg-stone-800 p-6 rounded-[2.2rem] text-white shadow-xl text-center active:scale-95 transition-all cursor-pointer">
+                    <div class="w-12 h-12 bg-stone-700 text-stone-300 rounded-[1.2rem] flex items-center justify-center mx-auto mb-3 text-xl"><i class="fa-solid fa-list-check"></i></div>
+                    <p class="text-[10px] font-black text-stone-400 uppercase tracking-widest">القطيع الحالي</p>
+                    <p class="text-xl font-black text-white mt-1"><span id="dash-headcount">0</span> رأس</p>
+                </div>
+            </div>
+
+            <!-- Dashboard Chart -->
+            <div class="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm flex flex-col items-center">
+                <h3 class="text-sm font-black text-stone-800 mb-6 flex items-center gap-2 self-start"><i class="fa-solid fa-chart-pie text-green-600"></i> توزيع التكاليف</h3>
+                <div class="w-full relative h-[250px]">
+                    <canvas id="dash-pie-chart"></canvas>
+                </div>
+                <p id="dash-chart-empty" class="text-stone-400 font-bold italic text-sm mt-4 hidden">لا توجد بيانات كافية للرسم</p>
+            </div>
+        </section>
+
+        <!-- Tab: Purchases -->
+        <section id="tab-purchases" class="tab-section hidden space-y-6 slide-up">
+            <div class="bg-white p-8 rounded-[3rem] shadow-sm border border-stone-100">
+                <h3 class="text-lg font-black text-stone-800 mb-6 flex items-center gap-2 text-purple-600"><i class="fa-solid fa-truck-ramp-box"></i> تسجيل مشتريات / رصيد</h3>
+                <form id="form-purchase" class="space-y-5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <select id="pur-source" class="w-full p-4 bg-stone-50 border-none rounded-2xl font-bold text-stone-700 outline-none">
+                            <option value="شراء">شراء حلال جديد</option>
+                            <option value="رصيد بداية">رصيد أول المدة</option>
+                        </select>
+                        <select id="pur-type" class="animal-type-select w-full p-4 bg-stone-50 border-none rounded-2xl font-bold text-stone-700 outline-none">
+                            <!-- Populated via JS -->
+                        </select>
+                    </div>
+                    
+                    <input type="text" id="pur-custom-type" class="w-full p-4 bg-purple-50 border-2 border-purple-100 rounded-2xl font-black outline-none hidden" placeholder="اكتب اسم النوع الجديد هنا...">
+                    
+                    <!-- Expected Serial Number Hint -->
+                    <div id="pur-tag-hint" class="hidden bg-purple-50 p-4 rounded-2xl border border-purple-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <span class="text-[11px] font-black text-purple-800 flex items-center gap-1"><i class="fa-solid fa-tag"></i> أرقام الوسم المتوقعة:</span>
+                        <span id="pur-tag-preview" class="text-[12px] font-mono font-black text-purple-900 ltr bg-white px-3 py-1 rounded-lg border border-purple-100"></span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">العدد (رؤوس)</label>
+                            <input type="number" id="pur-count" required min="1" class="w-full p-4 bg-stone-50 border-none rounded-2xl font-black text-lg outline-none" placeholder="0">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">سعر الرأس (﷼)</label>
+                            <input type="number" id="pur-price" required min="0" class="w-full p-4 bg-stone-50 border-none rounded-2xl font-black text-lg outline-none" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">الإجمالي النهائي (﷼)</label>
+                        <input type="number" id="pur-amount" required class="w-full p-4 bg-emerald-50 text-emerald-800 border-none rounded-2xl font-black text-xl outline-none" placeholder="0.00">
+                    </div>
+                    <button type="submit" class="w-full bg-purple-600 text-white py-5 rounded-3xl font-black text-lg shadow-lg active:scale-95 transition-all mt-4">تثبيت في المخزون</button>
+                </form>
+            </div>
+            <div class="space-y-3">
+                <h3 class="text-[10px] font-black text-stone-400 uppercase tracking-widest px-4">أرشيف المشتريات</h3>
+                <div id="purchases-list" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- Tab: Expenses -->
+        <section id="tab-expenses" class="tab-section hidden space-y-6 slide-up">
+            <!-- Mortality -->
+            <div class="bg-white p-8 rounded-[3rem] shadow-sm border border-stone-100 border-b-4 border-b-rose-200">
+                <h3 class="text-lg font-black text-stone-800 mb-6 flex items-center gap-2 text-rose-600"><i class="fa-solid fa-skull"></i> تسجيل نفوق (خصم)</h3>
+                <div id="mort-error" class="hidden bg-rose-50 text-rose-600 p-4 rounded-2xl text-[11px] font-black mb-4 flex items-center gap-2 animate-bounce"></div>
+                <form id="form-mortality" class="space-y-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">اختر النوع المراد الخصم منه</label>
+                        <select id="mort-type" class="animal-type-select-no-other w-full p-4 bg-stone-50 border-none rounded-2xl font-bold text-stone-700 outline-none rose-focus"></select>
+                    </div>
+                    <input type="number" id="mort-count" required min="1" class="w-full p-4 bg-stone-50 border-none rounded-2xl font-black text-lg outline-none rose-focus" placeholder="عدد الرؤوس النافقة">
+                    <button type="submit" class="w-full bg-stone-800 text-white py-5 rounded-3xl font-black text-lg active:scale-95 transition-all">تأكيد خصم النفوق</button>
+                </form>
+            </div>
+            
+            <!-- Expenses -->
+            <div class="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm">
+                <h3 class="text-lg font-black text-stone-800 mb-6 flex items-center gap-2 text-orange-500"><i class="fa-solid fa-receipt"></i> تسجيل مصروفات تشغيلية</h3>
+                <form id="form-expense" class="space-y-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">بند الصرف</label>
+                        <select id="exp-type" class="w-full p-4 bg-stone-50 border-none rounded-2xl font-bold text-stone-700 outline-none orange-focus">
+                            <option>الأعلاف</option><option>الأدوية</option><option>المواصلات</option><option>أخرى</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">المبلغ المدفوع (﷼)</label>
+                        <input type="number" id="exp-amount" required min="1" class="w-full p-4 bg-stone-50 border-none rounded-2xl font-black text-lg outline-none orange-focus" placeholder="0.00">
+                    </div>
+                    <button type="submit" class="w-full bg-orange-500 text-white py-5 rounded-3xl font-black text-lg shadow-lg active:scale-95 transition-all">حفظ المصروف المالي</button>
+                </form>
+            </div>
+            
+            <div class="space-y-3">
+                 <h4 class="text-[10px] font-black text-stone-400 px-4 uppercase tracking-widest mt-6">العمليات الأخيرة</h4>
+                 <div id="expenses-list" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- Tab: Births -->
+        <section id="tab-births" class="tab-section hidden space-y-8 slide-up">
+            <!-- Births -->
+            <div class="bg-white p-8 rounded-[3rem] shadow-sm border border-stone-100 border-b-4 border-b-blue-200">
+                <h3 class="text-lg font-black text-stone-800 mb-6 flex items-center gap-2 text-blue-600"><i class="fa-solid fa-paw"></i> تسجيل مواليد جديدة</h3>
+                <form id="form-birth" class="space-y-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">نوع المواليد</label>
+                        <select id="bir-type" class="animal-type-select w-full p-4 bg-stone-50 border-none rounded-2xl font-bold text-stone-700 outline-none blue-focus"></select>
+                    </div>
+                    
+                    <input type="text" id="bir-custom-type" class="w-full p-4 bg-blue-50 border-2 border-blue-100 rounded-2xl font-black outline-none hidden" placeholder="اكتب اسم النوع الجديد هنا...">
+
+                    <!-- Expected Serial Number Hint -->
+                    <div id="bir-tag-hint" class="hidden bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <span class="text-[11px] font-black text-blue-800 flex items-center gap-1"><i class="fa-solid fa-tags"></i> أرقام الوسم التسلسلية:</span>
+                        <span id="bir-tag-preview" class="text-[12px] font-mono font-black text-blue-900 ltr bg-white px-3 py-1 rounded-lg border border-blue-100"></span>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">عدد الرؤوس المولودة</label>
+                        <input type="number" id="bir-count" required min="1" class="w-full p-4 bg-stone-50 border-none rounded-2xl font-black text-lg outline-none blue-focus" placeholder="0">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-5 rounded-3xl font-black text-lg shadow-lg active:scale-95 transition-all mt-4">تثبيت المواليد وإضافة للمخزون</button>
+                </form>
+            </div>
+
+            <!-- Vaccines -->
+            <div class="bg-white p-8 rounded-[3rem] border border-stone-100 border-b-4 border-b-indigo-200">
+                <h3 class="text-lg font-black text-stone-800 mb-6 flex items-center gap-2 text-indigo-600"><i class="fa-solid fa-syringe"></i> سجل التحصينات الطبية</h3>
+                <form id="form-vaccine" class="space-y-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">اختر من تطعيمات سابقة</label>
+                        <select id="vac-select" class="w-full p-4 bg-indigo-50/50 border-none rounded-2xl font-bold text-indigo-900 outline-none">
+                            <option value="">-- اختر تطعيماً أو اكتب جديداً بالأسفل --</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                         <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">اسم تطعيم جديد</label>
+                         <input type="text" id="vac-name" class="w-full p-4 bg-stone-50 border-none rounded-2xl font-black outline-none" placeholder="مثال: دموي، معوي...">
+                    </div>
+                    <div class="space-y-1">
+                         <label class="text-[10px] font-black text-stone-400 mr-2 uppercase tracking-widest">النوع المستهدف</label>
+                         <select id="vac-animal" class="animal-type-select-no-other w-full p-4 bg-stone-50 border-none rounded-2xl font-bold text-stone-700 outline-none"></select>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black text-lg shadow-lg active:scale-95 transition-all mt-2">تسجيل إعطاء التطعيم</button>
+                </form>
+                
+                <div class="mt-8 space-y-3">
+                    <h4 class="text-[10px] font-black text-stone-400 uppercase tracking-widest px-2 mb-2">آخر التطعيمات المعطاة</h4>
+                    <div id="vaccines-list" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <h3 class="text-[10px] font-black text-stone-400 uppercase tracking-widest px-4">أرشيف المواليد</h3>
+                <div id="births-list" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- Tab: Sales -->
+        <section id="tab-sales" class="tab-section hidden space-y-8 slide-up max-w-2xl mx-auto">
+            <div class="bg-white p-10 rounded-[3.5rem] shadow-sm border border-stone-100 text-center">
+                <div class="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-sm"><i class="fa-solid fa-cart-arrow-down text-3xl"></i></div>
+                <h2 class="text-3xl font-black text-stone-800 mb-8 tracking-tight">إصدار فاتورة بيع</h2>
+                
+                <div id="sale-error" class="hidden bg-rose-50 text-rose-600 p-4 rounded-2xl text-[12px] font-black mb-6 flex items-center justify-center gap-2 animate-bounce"></div>
+                
+                <form id="form-sale" class="space-y-6 text-right">
+                    <div class="space-y-1">
+                        <label class="text-[11px] font-black text-stone-400 mr-2 uppercase tracking-widest text-center block">نوع الماشية المباعة</label>
+                        <select id="sale-type" class="animal-type-select-no-other w-full p-4 bg-stone-50 border-none rounded-3xl font-bold text-stone-700 outline-none text-center text-lg emerald-focus"></select>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-black text-stone-400 mr-2 uppercase tracking-widest text-center block">العدد المباع</label>
+                            <input type="number" id="sale-count" required min="1" class="w-full p-4 bg-stone-50 border-none rounded-3xl font-black text-center text-xl outline-none emerald-focus" placeholder="0">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-black text-stone-400 mr-2 uppercase tracking-widest text-center block">سعر البيع للرأس</label>
+                            <input type="number" id="sale-price" required min="1" class="w-full p-4 bg-stone-50 border-none rounded-3xl font-black text-center text-xl outline-none emerald-focus" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="space-y-2 pt-4 border-t border-stone-100">
+                        <label class="text-[12px] font-black text-stone-400 uppercase tracking-widest text-center block">إجمالي مبلغ البيعة (﷼)</label>
+                        <input type="number" id="sale-amount" required class="w-full p-5 bg-emerald-50 text-emerald-800 border-none rounded-3xl font-black text-center text-4xl outline-none emerald-focus" placeholder="0">
+                    </div>
+                    <button type="submit" class="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-200 active:scale-95 transition-all mt-4">تأكيد البيع وإضافة الأرباح</button>
+                </form>
+            </div>
+            <div class="space-y-3">
+                <h3 class="text-[11px] font-black text-stone-400 uppercase tracking-widest px-4">سجل المبيعات الأخيرة</h3>
+                <div id="sales-list" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- Tab: Reports -->
+        <section id="tab-reports" class="tab-section hidden space-y-8 slide-up">
+            
+            <!-- Feed Report -->
+            <div class="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm border-r-4 border-r-orange-500">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 class="text-xl font-black text-stone-800 flex items-center gap-2"><i class="fa-solid fa-wheat-awn text-orange-500"></i> تقرير الأعلاف</h3>
+                        <p class="text-[11px] text-stone-400 font-bold uppercase mt-1 tracking-wider">تحليل تكاليف التغذية</p>
+                    </div>
+                    <div class="bg-orange-50 px-4 py-2 rounded-2xl">
+                        <span id="rep-feed-total" class="text-lg font-black text-orange-700">0 ﷼</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-stone-50 p-4 rounded-3xl">
+                        <p class="text-[10px] font-black text-stone-400 mb-1">نسبة من المصاريف</p>
+                        <p class="text-2xl font-black text-stone-800"><span id="rep-feed-percent">0</span>%</p>
+                    </div>
+                    <div class="bg-stone-50 p-4 rounded-3xl">
+                        <p class="text-[10px] font-black text-stone-400 mb-1">عدد عمليات الشراء</p>
+                        <p id="rep-feed-count" class="text-2xl font-black text-stone-800">0</p>
+                    </div>
+                </div>
+                <div class="h-4 bg-stone-100 rounded-full overflow-hidden">
+                    <div id="rep-feed-bar" class="h-full bg-orange-500 transition-all duration-1000 w-0"></div>
+                </div>
+            </div>
+
+            <!-- Avg Purchase Price -->
+            <div class="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm border-r-4 border-r-purple-500">
+                <h3 class="text-xl font-black text-stone-800 flex items-center gap-2 mb-6"><i class="fa-solid fa-file-invoice-dollar text-purple-500"></i> متوسط تكلفة الشراء للرأس</h3>
+                <div id="rep-avg-list" class="space-y-3">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+
+            <!-- Overall Bar Chart -->
+            <div class="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm flex flex-col items-center">
+                <h3 class="text-lg font-black text-stone-800 mb-6 flex items-center gap-2 self-start"><i class="fa-solid fa-scale-balanced text-green-600"></i> ميزان القيمة المالية (تدفق نقدي)</h3>
+                <div class="w-full relative h-[300px]">
+                    <canvas id="reports-bar-chart"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        const state = {
+            activeTab: 'dashboard',
+            expenses: [],
+            sales: [],
+            mortality: [],
+            purchases: [],
+            births: [],
+            vaccinations: [],
+            animalTypes: ['نعيمي', 'نجدي', 'حري', 'سواكني', 'ماعز', 'تيوس'],
+            purSerialCounter: 1001,
+            birSerialCounter: 2001
+        };
+
+        const tabsOrder = ['dashboard', 'purchases', 'expenses', 'births', 'sales', 'reports'];
+        
+        // Chart Instances
+        let dashPieChart = null;
+        let repBarChart = null;
+
+        // --- Helper Functions ---
+        
+        // Formatter for Currency
+        const formatMoney = (num) => Number(num).toLocaleString('en-US');
+
+        // Date formatter
+        const formatDate = (isoString) => {
+            const date = new Date(isoString);
+            return date.toLocaleDateString('ar-SA', { day: 'numeric', month: 'short', year: 'numeric' });
+        };
+
+        // Generate Prefix
+        const getAnimalCodePrefix = (type) => {
+            const codeMap = { 'نعيمي': 'NCM', 'نجدي': 'NJD', 'حري': 'HRI', 'سواكني': 'SWK', 'ماعز': 'MAZ', 'تيوس': 'TYS' };
+            return codeMap[type] || (type ? type.substring(0, 3).toUpperCase() : 'LIV');
+        };
+
+        // Calculate Tag Range
+        const calculateTagRange = (type, count, isBirth = false) => {
+            const numCount = Number(count) || 0;
+            if (numCount <= 0) return { tagString: '' };
+
+            const existingPur = state.purchases.filter(p => p.animalType === type).reduce((a, b) => a + (Number(b.originalCount || b.count) || 0), 0);
+            const existingBir = state.births.filter(b => b.animalType === type).reduce((a, b) => a + (Number(b.originalCount || b.count) || 0), 0);
+            const totalPrevious = existingPur + existingBir;
+
+            const prefix = getAnimalCodePrefix(type);
+            const startNum = totalPrevious + 1;
+            const endNum = totalPrevious + numCount;
+
+            const startTag = `#${prefix}-${String(startNum).padStart(4, '0')}`;
+            const endTag = `#${prefix}-${String(endNum).padStart(4, '0')}`;
+
+            return { tagString: numCount === 1 ? startTag : `${startTag} ➔ ${endTag}` };
+        };
+
+        // Safe Inventory Calculations
+        const calculateStats = () => {
+            const inventory = {};
+            state.animalTypes.forEach(t => inventory[t] = { count: 0, value: 0 });
+            
+            state.purchases.forEach(p => {
+                if (p.animalType && inventory[p.animalType]) {
+                    inventory[p.animalType].count += Number(p.count);
+                    inventory[p.animalType].value += Number(p.amount) * (Number(p.count) / Number(p.originalCount || 1)); // Approximate value of remaining
+                }
+            });
+            
+            state.births.forEach(b => {
+                if (b.animalType && inventory[b.animalType]) {
+                    inventory[b.animalType].count += Number(b.count);
+                }
+            });
+
+            const expSum = state.expenses.reduce((a, c) => a + Number(c.amount), 0);
+            const saleSum = state.sales.reduce((a, c) => a + Number(c.amount), 0);
+            // Total invested is based on ORIGINAL purchase amounts to reflect true capital spent
+            const purSum = state.purchases.reduce((a, c) => a + Number(c.originalAmount || c.amount), 0); 
+            
+            const totalOut = expSum + purSum;
+            const profit = saleSum - totalOut;
+            const totalHead = Object.values(inventory).reduce((a, b) => a + b.count, 0);
+            const totalMort = state.mortality.reduce((a, c) => a + Number(c.count), 0);
+
+            const expensesGrouped = {
+                'الأدوية': state.expenses.filter(e => e.type === 'الأدوية').reduce((a, b) => a + Number(b.amount), 0),
+                'الأعلاف': state.expenses.filter(e => e.type === 'الأعلاف').reduce((a, b) => a + Number(b.amount), 0),
+                'المشتريات': purSum,
+                'أخرى': state.expenses.filter(e => e.type === 'أخرى' || e.type === 'المواصلات').reduce((a, b) => a + Number(b.amount), 0)
+            };
+
+            return { inventory, expSum, saleSum, purSum, totalOut, profit, totalHead, totalMort, expensesGrouped };
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            tabs: document.querySelectorAll('.tab-section'),
+            navBtns: document.querySelectorAll('.nav-btn'),
+            headerTitle: document.getElementById('header-subtitle'),
+            dashProfit: document.getElementById('dash-profit'),
+            dashSales: document.getElementById('dash-sales'),
+            dashCosts: document.getElementById('dash-costs'),
+            dashCapital: document.getElementById('dash-capital'),
+            dashHeadcount: document.getElementById('dash-headcount'),
+            dashProfitCard: document.getElementById('dash-profit-card'),
+            dashChartEmpty: document.getElementById('dash-chart-empty'),
+            inventoryModal: document.getElementById('inventory-modal'),
+            inventoryModalContent: document.getElementById('inventory-modal-content'),
+            longPressTarget: document.getElementById('long-press-target'),
+            // Selects
+            animalSelects: document.querySelectorAll('.animal-type-select'),
+            animalSelectsNoOther: document.querySelectorAll('.animal-type-select-no-other'),
+            vacSelect: document.getElementById('vac-select'),
+            // Lists
+            purList: document.getElementById('purchases-list'),
+            expList: document.getElementById('expenses-list'),
+            birList: document.getElementById('births-list'),
+            vacList: document.getElementById('vaccines-list'),
+            salList: document.getElementById('sales-list'),
+            repAvgList: document.getElementById('rep-avg-list'),
+            // Modals
+            calcModal: document.getElementById('calc-modal'),
+            openCalcBtn: document.getElementById('open-calc'),
+            closeCalcBtn: document.getElementById('close-calc'),
+            calcDisplay: document.getElementById('calc-display'),
+            calcPreview: document.getElementById('calc-preview'),
+            calcButtons: document.getElementById('calc-buttons')
+        };
+
+        // --- STREAMING_CHUNK:UI Update Functions ---
+        
+        function renderAnimalSelects() {
+            let optionsHTML = state.animalTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+            
+            els.animalSelects.forEach(select => {
+                const currentVal = select.value;
+                select.innerHTML = optionsHTML + `<option value="أخرى">أخرى (إضافة نوع جديد)</option>`;
+                if(state.animalTypes.includes(currentVal)) select.value = currentVal;
+            });
+
+            els.animalSelectsNoOther.forEach(select => {
+                const currentVal = select.value;
+                select.innerHTML = optionsHTML;
+                if(state.animalTypes.includes(currentVal)) select.value = currentVal;
+            });
+        }
+
+        function renderVaccineSelect() {
+            const uniqueVacs = [...new Set(state.vaccinations.map(v => v.name))];
+            let html = `<option value="">-- اختر تطعيماً أو اكتب بالأسفل --</option>`;
+            html += uniqueVacs.map(v => `<option value="${v}">${v}</option>`).join('');
+            els.vacSelect.innerHTML = html;
+        }
+
+        function updateCharts(stats) {
+            Chart.defaults.font.family = "'Cairo', sans-serif";
+            Chart.defaults.color = '#78716c';
+
+            const pieDataValues = Object.values(stats.expensesGrouped);
+            const hasPieData = pieDataValues.some(v => v > 0);
+
+            if (dashPieChart) dashPieChart.destroy();
+            if (repBarChart) repBarChart.destroy();
+
+            if (hasPieData) {
+                els.dashChartEmpty.classList.add('hidden');
+                document.getElementById('dash-pie-chart').classList.remove('hidden');
+                const ctxPie = document.getElementById('dash-pie-chart').getContext('2d');
+                dashPieChart = new Chart(ctxPie, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(stats.expensesGrouped),
+                        datasets: [{
+                            data: pieDataValues,
+                            backgroundColor: ['#10b981', '#f59e0b', '#8b5cf6', '#ef4444'],
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: { legend: { position: 'left', rtl: true, labels: { font: { size: 12, weight: 'bold' } } } }
+                    }
+                });
+            } else {
+                els.dashChartEmpty.classList.remove('hidden');
+                document.getElementById('dash-pie-chart').classList.add('hidden');
+            }
+
+            // Bar Chart (Reports)
+            const ctxBar = document.getElementById('reports-bar-chart').getContext('2d');
+            repBarChart = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: ['نظرة عامة'],
+                    datasets: [
+                        { label: 'المصاريف والمشتريات', data: [stats.totalOut], backgroundColor: '#f59e0b', borderRadius: 8 },
+                        { label: 'المبيعات والأرباح', data: [stats.saleSum], backgroundColor: '#10b981', borderRadius: 8 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { rtl: true, labels: { font: { family: 'Cairo', weight: 'bold' } } } },
+                    scales: { 
+                        x: { display: false, grid: { display: false } },
+                        y: { border: { display: false }, grid: { color: '#f5f5f5' }, ticks: { font: { size: 11, weight: 'bold' } } }
+                    }
+                }
+            });
+        }
+
+        function createListItemHTML(title, subTitle, value, typeClass, iconClass, extraBadge = '') {
+            return `
+            <div class="bg-white/80 backdrop-blur-sm p-5 rounded-[2rem] border border-stone-100 flex justify-between items-center shadow-sm fade-in">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-[1.2rem] flex items-center justify-center ${typeClass} text-xl shadow-inner">
+                        <i class="fa-solid ${iconClass}"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h4 class="text-base font-black text-stone-800">${title}</h4>
+                            ${extraBadge}
+                        </div>
+                        <p class="text-[10px] text-stone-500 font-bold uppercase tracking-widest mt-1">${subTitle}</p>
+                    </div>
+                </div>
+                <div class="text-base font-black text-stone-800">${value}</div>
+            </div>`;
+        }
+
+        function renderLists() {
+            // Purchases
+            els.purList.innerHTML = state.purchases.length === 0 ? '<p class="text-center text-stone-400 text-xs italic font-bold py-4">لا توجد مشتريات</p>' : 
+                state.purchases.map(p => {
+                    const badge = `<span class="bg-stone-800 text-white text-[9px] px-2 py-0.5 rounded-lg font-mono font-black tracking-wider ltr">#${p.serial}</span>`;
+                    return createListItemHTML(`${p.count} رأس - ${p.animalType}`, `${p.source} • سعر الرأس: ${formatMoney(p.pricePerHead)} ﷼`, `${formatMoney(p.amount)} ﷼`, 'bg-purple-50 text-purple-600', 'fa-truck-ramp-box', badge);
+                }).join('');
+
+            // Expenses & Mortality
+            let expHtml = state.expenses.map(e => createListItemHTML(e.type, e.date, `${formatMoney(e.amount)} ﷼`, 'bg-orange-50 text-orange-600', 'fa-receipt')).join('');
+            expHtml += state.mortality.map(m => createListItemHTML(`نفوق ${m.animalType}`, m.date, `${m.count} رأس`, 'bg-rose-50 text-rose-600', 'fa-skull')).join('');
+            els.expList.innerHTML = expHtml || '<p class="text-center text-stone-400 text-xs italic font-bold py-4">لا توجد عمليات</p>';
+
+            // Births
+            els.birList.innerHTML = state.births.length === 0 ? '<p class="text-center text-stone-400 text-xs italic font-bold py-4">لا يوجد مواليد</p>' : 
+                state.births.map(b => {
+                    const badge = `<span class="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded-lg font-mono font-black tracking-wider ltr border border-blue-200">#${b.serial}</span>`;
+                    return createListItemHTML(`مولود ${b.animalType}`, b.date, `${b.count} رأس`, 'bg-blue-50 text-blue-600', 'fa-paw', badge);
+                }).join('');
+
+            // Vaccines
+            els.vacList.innerHTML = state.vaccinations.length === 0 ? '<p class="text-center text-stone-400 text-xs italic font-bold py-4">لا يوجد تطعيمات</p>' : 
+                state.vaccinations.map(v => createListItemHTML(v.name, `${v.animalType} • ${v.date}`, 'تم', 'bg-indigo-50 text-indigo-600', 'fa-shield-heart')).join('');
+
+            // Sales
+            els.salList.innerHTML = state.sales.length === 0 ? '<p class="text-center text-stone-400 text-xs italic font-bold py-4">لا توجد مبيعات</p>' : 
+                state.sales.map(s => createListItemHTML(`بيع ${s.headCount} - ${s.animalType}`, `${s.date} • سعر الرأس: ${formatMoney(s.pricePerHead)} ﷼`, `${formatMoney(s.amount)} ﷼`, 'bg-emerald-50 text-emerald-600', 'fa-cart-shopping')).join('');
+        }
+
+        function updateUI() {
+            const stats = calculateStats();
+            
+            // Dashboard Update
+            els.dashProfit.innerText = formatMoney(stats.profit);
+            els.dashSales.innerText = formatMoney(stats.saleSum);
+            els.dashCosts.innerText = formatMoney(stats.totalOut);
+            els.dashCapital.innerText = formatMoney(stats.purSum);
+            els.dashHeadcount.innerText = stats.totalHead;
+
+            // Profit Card Style
+            if (stats.profit >= 0) {
+                els.dashProfitCard.className = "p-8 rounded-[3.5rem] shadow-2xl relative overflow-hidden transition-all duration-1000 bg-gradient-to-br from-emerald-600 to-green-800 shadow-green-100";
+            } else {
+                els.dashProfitCard.className = "p-8 rounded-[3.5rem] shadow-2xl relative overflow-hidden transition-all duration-1000 bg-gradient-to-br from-rose-600 to-red-800 shadow-red-100";
+            }
+
+            // Reports Update
+            const feedCost = stats.expensesGrouped['الأعلاف'] || 0;
+            const expTotalWithoutPurchases = stats.expSum; // Feed vs Running Expenses (not capital)
+            const feedPct = expTotalWithoutPurchases > 0 ? ((feedCost / expTotalWithoutPurchases) * 100).toFixed(1) : 0;
+            
+            document.getElementById('rep-feed-total').innerText = `${formatMoney(feedCost)} ﷼`;
+            document.getElementById('rep-feed-percent').innerText = feedPct;
+            document.getElementById('rep-feed-count').innerText = state.expenses.filter(e => e.type === 'الأعلاف').length;
+            document.getElementById('rep-feed-bar').style.width = `${feedPct}%`;
+
+            // Avg Purchase Logic
+            let avgHtml = '';
+            state.animalTypes.forEach(type => {
+                const typePurchases = state.purchases.filter(p => p.animalType === type);
+                const totalC = typePurchases.reduce((a, b) => a + Number(b.originalCount || b.count), 0);
+                const totalA = typePurchases.reduce((a, b) => a + Number(b.originalAmount || b.amount), 0);
+                if (totalC > 0) {
+                    const avg = (totalA / totalC).toFixed(0);
+                    avgHtml += `
+                    <div class="bg-stone-50 p-5 rounded-[2rem] flex justify-between items-center border border-stone-100">
+                        <div><span class="text-base font-black text-stone-800">${type}</span>
+                        <p class="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-1">إجمالي المشتريات: ${totalC} رأس</p></div>
+                        <div class="text-left"><span class="text-xl font-black text-purple-700">${formatMoney(avg)} ﷼</span>
+                        <p class="text-[9px] font-black text-stone-300 uppercase tracking-widest mt-1">متوسط للرأس</p></div>
+                    </div>`;
+                }
+            });
+            els.repAvgList.innerHTML = avgHtml || '<p class="text-center py-6 text-stone-300 italic font-bold">لا توجد بيانات شراء</p>';
+
+            // Inventory Modal Update
+            let invHtml = '';
+            Object.entries(stats.inventory).forEach(([type, data]) => {
+                if (data.count > 0) {
+                    invHtml += `
+                    <div class="bg-stone-50 p-5 rounded-3xl flex justify-between items-center border border-stone-100 shadow-inner">
+                        <span class="text-base font-black text-stone-800">${type}</span>
+                        <div class="text-left"><span class="text-2xl font-black text-green-700 ml-1">${data.count}</span><span class="text-[11px] font-bold text-stone-400">رأس</span></div>
+                    </div>`;
+                }
+            });
+            els.inventoryModalContent.innerHTML = invHtml || '<p class="text-center py-8 text-stone-300 italic font-black text-lg">لا توجد مواشي في المخزون</p>';
+
+            updateCharts(stats);
+            renderLists();
+            renderAnimalSelects();
+            renderVaccineSelect();
+        }
+
+        // --- STREAMING_CHUNK:Tab Navigation & Swipe Logic ---
+        function switchTab(tabId) {
+            state.activeTab = tabId;
+            els.tabs.forEach(tab => {
+                if(tab.id === `tab-${tabId}`) tab.classList.remove('hidden');
+                else tab.classList.add('hidden');
+            });
+            els.navBtns.forEach(btn => {
+                if(btn.dataset.tab === tabId) btn.classList.add('active-tab-btn');
+                else btn.classList.remove('active-tab-btn');
+            });
+
+            const titles = {
+                dashboard: 'لوحة المتابعة', purchases: 'إدارة المخزون والمشتريات', expenses: 'المصروفات والنفوق',
+                births: 'سجل المواليد والتطعيم', sales: 'إدارة المبيعات', reports: 'التقارير والتحليلات'
+            };
+            els.headerTitle.innerText = titles[tabId];
+            window.scrollTo(0,0);
+        }
+
+        els.navBtns.forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        // Swipe Handlers
+        let touchStartX = null;
+        let touchEndX = null;
+
+        document.addEventListener('touchstart', handleTouchStart, {passive: true});
+        document.addEventListener('touchmove', handleTouchMove, {passive: true});
+        document.addEventListener('touchend', handleTouchEnd);
+
+        function handleTouchStart(e) { touchStartX = e.changedTouches[0].screenX; }
+        function handleTouchMove(e) { touchEndX = e.changedTouches[0].screenX; }
+        function handleTouchEnd() {
+            if (touchStartX === null || touchEndX === null) return;
+            const distance = touchStartX - touchEndX;
+            const currentIndex = tabsOrder.indexOf(state.activeTab);
+            
+            // RTL means swipe left (distance > 0) goes to NEXT tab.
+            if (distance > 100 && currentIndex < tabsOrder.length - 1) {
+                switchTab(tabsOrder[currentIndex + 1]);
+            } else if (distance < -100 && currentIndex > 0) {
+                switchTab(tabsOrder[currentIndex - 1]);
+            }
+            touchStartX = null; touchEndX = null;
+        }
+
+        //<!-- ... existing code ... -->
+        els.openCalcBtn.onclick = () => { els.calcModal.classList.remove('hidden'); };
+        els.closeCalcBtn.onclick = () => { els.calcModal.classList.add('hidden'); };
+
+        //        let pressTimer = null;
+        
+        els.longPressTarget.addEventListener('mousedown', startPress);
+        els.longPressTarget.addEventListener('touchstart', startPress, {passive: true});
+        els.longPressTarget.addEventListener('mouseup', endPress);
+        els.longPressTarget.addEventListener('mouseleave', endPress);
+        els.longPressTarget.addEventListener('touchend', endPress);
+
+        function startPress() { pressTimer = setTimeout(() => els.inventoryModal.classList.remove('hidden'), 800); }
+        function endPress() { clearTimeout(pressTimer); els.inventoryModal.classList.add('hidden'); }
+
+        //<!-- ... existing code ... -->
