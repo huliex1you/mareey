@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>مراعي لإدارة الحلال</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #fcfaf7; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 10px; }
+        
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .tab-section { display: none; }
+        .tab-section.active { display: block; animation: fadeIn 0.4s ease-out forwards; }
+
+        .nav-btn { color: #a8a29e; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .nav-btn.active { color: #16a34a; transform: scale(1.15) translateY(-2px); }
+        .nav-btn.active span { font-weight: 900; color: #16a34a; }
+        
+        /* تنسيقات الطباعة الاحترافية */
+        @media print {
+            body.printing-tags > *:not(#tags-print-container), body.printing-profile > *:not(#profile-print-container) { display: none !important; }
+            body.printing-tags #tags-print-container, body.printing-profile #profile-print-container { display: block !important; padding: 20px; }
+            
+            body:not(.printing-tags):not(.printing-profile) { background: white !important; font-size: 11pt; padding: 0 !important; margin: 0 !important; }
+            body:not(.printing-tags):not(.printing-profile) .no-print { display: none !important; }
+            body:not(.printing-tags):not(.printing-profile) .print-only { display: block !important; }
+            
+            body:not(.printing-tags):not(.printing-profile) main { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+            body:not(.printing-tags):not(.printing-profile) .tab-section { display: none !important; }
+            body:not(.printing-tags):not(.printing-profile) #tab-reports { display: block !important; opacity: 1 !important; visibility: visible !important; }
+            
+            body:not(.printing-tags):not(.printing-profile) .print-cards-grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 10px !important; margin-bottom: 20px !important; }
+            body:not(.printing-tags):not(.printing-profile) .print-charts-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 20px !important; margin-bottom: 20px !important; page-break-inside: avoid; }
+            
+            body:not(.printing-tags):not(.printing-profile) .shadow-sm, body:not(.printing-tags):not(.printing-profile) .shadow-xl, body:not(.printing-tags):not(.printing-profile) .shadow-2xl { box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+            canvas { max-width: 100% !important; height: auto !important; page-break-inside: avoid; }
+            .page-break-inside-avoid { page-break-inside: avoid; margin-bottom: 20px !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+    </style>
+</head>
+<body class="text-stone-800 pb-28">
+
+    <!-- حاويات الطباعة المخفية -->
+    <div id="tags-print-container" class="hidden"></div>
+    <div id="profile-print-container" class="hidden"></div>
+
+    <!-- الإشعارات -->
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-stone-900 text-white px-6 py-3 rounded-full shadow-2xl z-[100] text-sm font-bold opacity-0 pointer-events-none transition-opacity duration-300 flex items-center gap-2">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-msg">تمت العملية بنجاح</span>
+    </div>
+
+    <!-- نافذة الجرد -->
+    <div id="inventory-modal" class="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[90] hidden flex items-center justify-center p-4 no-print" onclick="closeInventory()">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl slide-up" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-black text-stone-800 flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-green-600"></i> تفاصيل القطيع
+                </h3>
+                <button onclick="closeInventory()" class="text-stone-400 hover:text-rose-500 w-8 h-8 bg-stone-100 rounded-full flex justify-center items-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="inventory-list" class="space-y-3 custom-scrollbar max-h-[60vh] overflow-y-auto pr-1"></div>
+        </div>
+    </div>
+
+    <!-- نافذة الملف الشخصي والباركود (Animal Profile & QR) -->
+    <div id="profile-modal" class="fixed inset-0 bg-stone-900/80 backdrop-blur-md z-[100] hidden flex items-center justify-center p-4 no-print" onclick="closeProfile()">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-6 shadow-2xl slide-up max-h-[90vh] overflow-y-auto custom-scrollbar" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-16 h-16 bg-stone-100 rounded-2xl flex items-center justify-center border-2 border-stone-200">
+                        <i class="fa-solid fa-hippo text-3xl text-stone-400"></i>
+                    </div>
+                    <div>
+                        <h3 id="prof-type" class="text-2xl font-black text-stone-800">نوع الماشية</h3>
+                        <span id="prof-serial" class="text-xs font-mono font-black bg-stone-100 text-stone-600 px-2 py-1 rounded-lg">#SERIAL</span>
+                    </div>
+                </div>
+                <button onclick="closeProfile()" class="text-stone-400 hover:text-rose-500 w-8 h-8 bg-stone-100 rounded-full flex justify-center items-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="bg-blue-50 p-3 rounded-2xl"><p class="text-[10px] font-black text-blue-500 uppercase">العمر التقريبي</p><p id="prof-age" class="text-lg font-black text-blue-800">رضيع</p></div>
+                <div class="bg-emerald-50 p-3 rounded-2xl"><p class="text-[10px] font-black text-emerald-500 uppercase">سعر الشراء للرأس</p><p id="prof-price" class="text-lg font-black text-emerald-800">0 ﷼</p></div>
+                <div class="bg-stone-50 p-3 rounded-2xl"><p class="text-[10px] font-black text-stone-500 uppercase">تاريخ الشراء/الميلاد</p><p id="prof-date" class="text-lg font-black text-stone-800">2026-01-01</p></div>
+                <div class="bg-purple-50 p-3 rounded-2xl"><p class="text-[10px] font-black text-purple-500 uppercase">العدد الإجمالي</p><p id="prof-count" class="text-lg font-black text-purple-800">0 رأس</p></div>
+            </div>
+
+            <div class="flex justify-center mb-6">
+                <div class="bg-white p-4 rounded-3xl shadow-md border border-stone-100 text-center">
+                    <div id="qrcode-container" class="flex justify-center mb-2"></div>
+                    <p class="text-[9px] font-black text-stone-400">امسح الباركود لعرض البيانات</p>
+                </div>
+            </div>
+
+            <!-- السجل الطبي والتطعيمات -->
+            <div class="border-t border-stone-100 pt-4">
+                <h4 class="text-sm font-black text-stone-800 mb-3 flex items-center gap-2"><i class="fa-solid fa-notes-medical text-rose-500"></i> السجل الطبي والتطعيمات</h4>
+                <div id="prof-medical-list" class="space-y-2 mb-4 max-h-32 overflow-y-auto custom-scrollbar"></div>
+                
+                <form id="form-medical-note" class="flex gap-2">
+                    <input type="hidden" id="prof-hidden-serial">
+                    <input type="text" id="prof-new-note" required class="flex-1 p-3 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none" placeholder="اكتب ملاحظة أو تطعيم...">
+                    <button type="submit" class="bg-stone-800 text-white px-4 rounded-xl font-black text-sm active:scale-95">إضافة</button>
+                </form>
+            </div>
+            
+            <button onclick="printProfile()" class="w-full mt-4 bg-stone-100 text-stone-700 py-3 rounded-2xl font-black text-sm hover:bg-stone-200 transition-colors"><i class="fa-solid fa-print"></i> طباعة البطاقة</button>
+        </div>
+    </div>
+
+    <!-- الترويسة -->
+    <header class="sticky top-0 z-40 bg-[#fcfaf7]/90 backdrop-blur-md px-6 py-4 flex justify-between items-center border-b border-stone-200 no-print shadow-sm">
+        <div>
+            <h1 class="text-3xl font-black text-stone-800 tracking-tight">مـراعي</h1>
+            <p id="header-subtitle" class="text-[11px] text-stone-500 font-bold uppercase tracking-widest mt-1">لوحة المتابعة</p>
+        </div>
+        <button onclick="alert('الآلة الحاسبة ستتوفر قريباً')" class="w-12 h-12 rounded-[1.2rem] bg-white border border-stone-200 shadow-sm flex justify-center items-center text-stone-600 active:scale-95 transition-transform hover:bg-stone-50">
+            <i class="fa-solid fa-calculator text-xl"></i>
+        </button>
+    </header>
+
+    <!-- رأس الطباعة للتقارير -->
+    <div class="print-only hidden text-center py-6 border-b-2 border-stone-200 mb-6 bg-white">
+        <h1 id="print-title" class="text-4xl font-black text-stone-900">مـراعي - التقرير المالي والتحليلي</h1>
+        <p id="print-date" class="text-stone-600 font-bold mt-2 text-lg"></p>
+        <p id="print-filters" class="text-stone-500 font-bold mt-1 text-sm"></p>
+    </div>
+
+    <main class="px-5 py-6 max-w-5xl mx-auto" id="main-content">
+        <!-- القسم 1: الرئيسية -->
+        <section id="tab-dashboard" class="tab-section active">
+            <div class="space-y-6">
+                <div id="profit-card" class="p-8 md:p-10 rounded-[3rem] shadow-xl relative overflow-hidden transition-colors duration-500 bg-gradient-to-br from-emerald-600 to-green-800 text-white flex flex-col justify-center min-h-[220px]">
+                    <div class="relative z-10 text-center md:text-right">
+                        <span class="text-sm font-black opacity-80 uppercase tracking-widest block mb-3">صافي الربح / الخسارة</span>
+                        <h2 class="text-6xl md:text-7xl font-black tracking-tighter drop-shadow-md"><span id="dash-profit">0</span> <span class="text-3xl font-bold opacity-80">﷼</span></h2>
+                        <div class="flex justify-center md:justify-start gap-4 mt-8">
+                            <div class="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider">مبيعات: <span id="dash-sales">0</span> ﷼</div>
+                            <div class="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider">تكاليف: <span id="dash-costs">0</span> ﷼</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm text-center flex flex-col justify-center min-h-[160px]">
+                        <div class="w-14 h-14 bg-purple-50 text-purple-600 rounded-[1.2rem] flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-wallet text-2xl"></i></div>
+                        <p class="text-sm font-black text-stone-400 uppercase tracking-widest mb-2">رأس المال (مشتريات)</p>
+                        <p class="text-4xl font-black text-stone-800"><span id="dash-capital">0</span> <span class="text-lg text-stone-500">﷼</span></p>
+                    </div>
+                    
+                    <div onclick="openInventory()" class="bg-stone-800 p-6 md:p-8 rounded-[2.5rem] text-white shadow-xl text-center active:scale-95 transition-transform cursor-pointer flex flex-col justify-center min-h-[160px] relative overflow-hidden">
+                        <div class="w-12 h-12 bg-stone-700 text-stone-300 rounded-[1.2rem] flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-hippo text-xl"></i></div>
+                        <p class="text-xs font-black text-stone-400 uppercase tracking-widest mb-1 flex justify-center items-center gap-1">الرصيد الحي <i class="fa-solid fa-hand-pointer text-green-400 animate-pulse text-[10px]"></i></p>
+                        <p class="text-4xl font-black text-white mb-4"><span id="dash-herd">0</span> <span class="text-sm text-stone-400">رأس</span></p>
+                        
+                        <div class="grid grid-cols-3 gap-2 bg-stone-900/50 rounded-2xl p-3 border border-stone-700">
+                            <div><p class="text-[9px] text-stone-400 font-bold mb-1">مواليد</p><p class="text-sm font-black text-blue-400" id="dash-total-births">0</p></div>
+                            <div class="border-x border-stone-700"><p class="text-[9px] text-stone-400 font-bold mb-1">مباع</p><p class="text-sm font-black text-emerald-400" id="dash-total-sold">0</p></div>
+                            <div><p class="text-[9px] text-stone-400 font-bold mb-1">نافق</p><p class="text-sm font-black text-rose-400" id="dash-total-dead">0</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- القسم 2: المشتريات -->
+        <section id="tab-purchases" class="tab-section">
+            <div class="space-y-6">
+                <div class="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-stone-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-2xl font-black text-purple-700 flex items-center gap-2"><i class="fa-solid fa-truck-ramp-box"></i> تسجيل مشتريات</h3>
+                        <span id="pur-serial" class="text-xs font-mono font-black bg-purple-50 text-purple-600 px-3 py-1.5 rounded-xl border border-purple-100"></span>
+                    </div>
+                    <form id="form-purchase" class="space-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <select id="pur-source" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-700 outline-none">
+                                <option value="شراء جديد">شراء جديد</option>
+                                <option value="رصيد بداية">رصيد أول المدة</option>
+                            </select>
+                            <select id="pur-type" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-700 outline-none" onchange="toggleCustomType('pur')"></select>
+                            <select id="pur-age" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-700 outline-none">
+                                <option value="رضيع">رضيع (0-6 أشهر)</option>
+                                <option value="جذع" selected>جذع (6-12 شهر)</option>
+                                <option value="ثني">ثني (سنة - سنتين)</option>
+                                <option value="رباع">رباع (سنتين - 3 سنوات)</option>
+                                <option value="سديس">سديس (3 - 4 سنوات)</option>
+                                <option value="جامع">جامع (4 سنوات فأكثر)</option>
+                            </select>
+                        </div>
+                        <input type="text" id="pur-custom-type" class="w-full p-4 bg-purple-50 border-2 border-purple-300 rounded-2xl font-black outline-none hidden placeholder-purple-400" placeholder="اسم النوع الجديد...">
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-[11px] font-black text-stone-500 block mb-1">العدد (رأس)</label><input type="number" id="pur-count" required min="1" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black text-lg outline-none" oninput="calcPurTotal()"></div>
+                            <div><label class="text-[11px] font-black text-stone-500 block mb-1">سعر الرأس (﷼)</label><input type="number" id="pur-price" required min="0" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black text-lg outline-none" oninput="calcPurTotal()"></div>
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-black text-emerald-600 block mb-1">الإجمالي (﷼)</label>
+                            <input type="number" id="pur-total" required class="w-full p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl font-black text-xl outline-none" readonly>
+                        </div>
+                        <button type="submit" class="w-full bg-purple-600 text-white py-5 rounded-[1.5rem] font-black text-xl shadow-lg active:scale-95 transition-transform mt-2">حفظ في المخزون</button>
+                    </form>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black text-stone-400 uppercase tracking-widest px-2 mb-3">سجل المشتريات (ملف وأوسام)</h4>
+                    <div id="list-purchases" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- القسم 3: العمليات -->
+        <section id="tab-expenses" class="tab-section">
+            <div class="space-y-6">
+                <!-- المصروفات مع الكمية -->
+                <div class="bg-white p-6 md:p-8 rounded-[2.5rem] border border-stone-100 shadow-sm border-r-4 border-r-orange-500">
+                    <h3 class="text-2xl font-black text-orange-600 mb-6 flex items-center gap-2"><i class="fa-solid fa-receipt"></i> تسجيل مصروف تشغيلي</h3>
+                    <form id="form-expense" class="space-y-5">
+                        <select id="exp-category" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-700 outline-none" onchange="updateExpDatalist()">
+                            <option value="الأعلاف">الأعلاف</option>
+                            <option value="الأدوية">الأدوية</option>
+                            <option value="المواصلات والعمالة">المواصلات والعمالة</option>
+                            <option value="أخرى">أخرى</option>
+                        </select>
+                        <div class="relative">
+                            <input type="text" id="exp-item" required list="exp-suggestions" autocomplete="off" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black outline-none" placeholder="الصنف (مثال: شعير، برسيم...)">
+                            <datalist id="exp-suggestions"></datalist>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="number" id="exp-qty" min="1" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black text-lg outline-none" placeholder="الكمية (اختياري)">
+                            <input type="number" id="exp-amount" required min="1" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black text-lg outline-none" placeholder="إجمالي التكلفة (﷼)">
+                        </div>
+                        <button type="submit" class="w-full bg-orange-500 text-white py-4 rounded-[1.5rem] font-black text-xl shadow-lg active:scale-95 transition-transform">حفظ المصروف</button>
+                    </form>
+                </div>
+
+                <!-- النفوق -->
+                <div class="bg-white p-6 md:p-8 rounded-[2.5rem] border border-stone-100 shadow-sm border-r-4 border-r-rose-500">
+                    <h3 class="text-2xl font-black text-rose-600 mb-6 flex items-center gap-2"><i class="fa-solid fa-skull-crossbones"></i> تسجيل حالة نفوق</h3>
+                    <form id="form-mortality" class="space-y-5">
+                        <select id="mort-type" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-700 outline-none"></select>
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="number" id="mort-count" required min="1" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black text-lg outline-none" placeholder="العدد النافق">
+                            <input type="date" id="mort-date" required class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black text-sm outline-none">
+                        </div>
+                        <input type="text" id="mort-reason" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black outline-none" placeholder="سبب النفوق / الأعراض (اختياري)">
+                        <button type="submit" class="w-full bg-stone-800 text-white py-4 rounded-[1.5rem] font-black text-xl active:scale-95 transition-transform">خصم من المخزون</button>
+                    </form>
+                </div>
+                
+                <div>
+                    <h4 class="text-xs font-black text-stone-400 uppercase tracking-widest px-2 mb-3">سجل العمليات</h4>
+                    <div id="list-operations" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- القسم 4: المواليد -->
+        <section id="tab-births" class="tab-section">
+            <div class="space-y-6">
+                <div class="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-stone-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-2xl font-black text-blue-600 flex items-center gap-2"><i class="fa-solid fa-baby-carriage"></i> إضافة مواليد</h3>
+                        <span id="bir-serial" class="text-xs font-mono font-black bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl border border-blue-100"></span>
+                    </div>
+                    <form id="form-birth" class="space-y-5">
+                        <select id="bir-type" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-700 outline-none"></select>
+                        <input type="number" id="bir-count" required min="1" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black text-lg outline-none" placeholder="عدد المواليد (رأس)">
+                        <button type="submit" class="w-full bg-blue-500 text-white py-5 rounded-[1.5rem] font-black text-xl shadow-lg active:scale-95 transition-transform mt-2">تسجيل المواليد</button>
+                    </form>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black text-stone-400 uppercase tracking-widest px-2 mb-3">أرشيف المواليد (ملفات وأوسام)</h4>
+                    <div id="list-births" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- القسم 5: المبيعات -->
+        <section id="tab-sales" class="tab-section">
+            <div class="space-y-6 max-w-lg mx-auto">
+                <div class="bg-white p-8 md:p-10 rounded-[3rem] shadow-sm border border-stone-100 text-center">
+                    <div class="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-[1.5rem] flex items-center justify-center mx-auto mb-5 shadow-sm"><i class="fa-solid fa-cart-shopping text-3xl"></i></div>
+                    <h2 class="text-3xl font-black text-stone-800 mb-8">إصدار فاتورة بيع</h2>
+                    
+                    <form id="form-sale" class="space-y-5 text-right">
+                        <select id="sale-type" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-700 outline-none"></select>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-[11px] font-black text-stone-500 block mb-1 text-center">العدد المباع</label><input type="number" id="sale-count" required min="1" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black text-center text-xl outline-none" oninput="calcSaleTotal()"></div>
+                            <div><label class="text-[11px] font-black text-stone-500 block mb-1 text-center">سعر البيع للرأس</label><input type="number" id="sale-price" required min="0" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-black text-center text-xl outline-none" oninput="calcSaleTotal()"></div>
+                        </div>
+                        <div class="pt-2">
+                            <label class="text-[11px] font-black text-emerald-700 block mb-1 text-center">إجمالي الفاتورة (﷼)</label>
+                            <input type="number" id="sale-total" required class="w-full p-5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-2xl font-black outline-none text-3xl text-center" readonly>
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 text-white py-5 rounded-[1.5rem] font-black text-xl shadow-xl active:scale-95 transition-transform mt-4">تأكيد البيع</button>
+                    </form>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black text-stone-400 uppercase tracking-widest px-2 mb-3 text-center">أحدث المبيعات</h4>
+                    <div id="list-sales" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- القسم 6: التقارير -->
+        <section id="tab-reports" class="tab-section">
+            <div id="report-builder-form" class="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-stone-200 mb-8 no-print">
+                <h3 class="text-2xl font-black text-stone-800 mb-6 flex items-center gap-2"><i class="fa-solid fa-sliders text-stone-500"></i> خيارات التقرير</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
+                    <div>
+                        <label class="text-xs font-black text-stone-500 block mb-2">الفترة الزمنية</label>
+                        <select id="report-timeframe" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none" onchange="toggleCustomDates(); generateReports();">
+                            <option value="all">كل الأوقات</option>
+                            <option value="today">اليوم</option>
+                            <option value="month">هذا الشهر</option>
+                            <option value="q1">الربع الأول (يناير - مارس)</option>
+                            <option value="q2">الربع الثاني (أبريل - يونيو)</option>
+                            <option value="q3">الربع الثالث (يوليو - سبتمبر)</option>
+                            <option value="q4">الربع الرابع (أكتوبر - ديسمبر)</option>
+                            <option value="year">هذا العام</option>
+                            <option value="custom">فترة مخصصة...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-black text-stone-500 block mb-2">نوع التقرير المستهدف</label>
+                        <select id="report-type" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none" onchange="generateReports();">
+                            <option value="comprehensive">تقرير مالي وتحليلي شامل</option>
+                            <option value="tax">التقرير الضريبي (المبيعات والمشتريات)</option>
+                            <option value="zakat">تقرير الزكاة (الحول والمخزون)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-black text-stone-500 block mb-2">مستوى التفصيل</label>
+                        <select id="report-detail" class="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none" onchange="generateReports();">
+                            <option value="detailed">مفصل (جداول تحليلية)</option>
+                            <option value="summary">مختصر (أرقام فقط)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="custom-date-container" class="hidden grid-cols-2 gap-4 mb-5 p-4 bg-stone-100 rounded-2xl">
+                    <div><label class="text-[10px] font-black text-stone-500 block mb-1">من تاريخ</label><input type="date" id="custom-date-from" class="w-full p-3 bg-white border border-stone-200 rounded-xl font-bold" onchange="generateReports()"></div>
+                    <div><label class="text-[10px] font-black text-stone-500 block mb-1">إلى تاريخ</label><input type="date" id="custom-date-to" class="w-full p-3 bg-white border border-stone-200 rounded-xl font-bold" onchange="generateReports()"></div>
+                </div>
+
+                <div class="flex gap-4 mt-8">
+                    <button onclick="window.print()" class="w-full bg-stone-800 text-white py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 hover:bg-stone-900 shadow-lg transition-transform active:scale-95">
+                        <i class="fa-solid fa-print"></i> تصدير و طباعة PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- حاوية التقرير المطبوع -->
+            <div id="printable-report" class="space-y-6">
+                <div id="dynamic-cards" class="print-cards-grid grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+                <div id="dynamic-charts" class="print-charts-grid grid grid-cols-1 md:grid-cols-2 gap-6 page-break-inside-avoid"></div>
+                <div id="detailed-tables-container" class="space-y-6"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- شريط التنقل السفلي -->
+    <nav class="fixed bottom-0 w-full bg-white/95 backdrop-blur-xl border-t border-stone-200 px-1 py-3 flex justify-around items-center z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] no-print">
+        <button class="nav-btn active flex flex-col items-center min-w-[55px] w-full" data-target="dashboard" onclick="switchTab('dashboard')"><i class="fa-solid fa-chart-pie text-xl mb-1.5"></i><span class="text-[10px] font-bold">الرئيسية</span></button>
+        <button class="nav-btn flex flex-col items-center min-w-[55px] w-full" data-target="purchases" onclick="switchTab('purchases')"><i class="fa-solid fa-truck-ramp-box text-xl mb-1.5"></i><span class="text-[10px] font-bold">المخزون</span></button>
+        <button class="nav-btn flex flex-col items-center min-w-[55px] w-full" data-target="expenses" onclick="switchTab('expenses')"><i class="fa-solid fa-receipt text-xl mb-1.5"></i><span class="text-[10px] font-bold">العمليات</span></button>
+        <button class="nav-btn flex flex-col items-center min-w-[55px] w-full" data-target="births" onclick="switchTab('births')"><i class="fa-solid fa-baby-carriage text-xl mb-1.5"></i><span class="text-[10px] font-bold">المواليد</span></button>
+        <button class="nav-btn flex flex-col items-center min-w-[55px] w-full" data-target="sales" onclick="switchTab('sales')"><i class="fa-solid fa-cart-shopping text-xl mb-1.5"></i><span class="text-[10px] font-bold">المبيعات</span></button>
+        <button class="nav-btn flex flex-col items-center min-w-[55px] w-full" data-target="reports" onclick="switchTab('reports')"><i class="fa-solid fa-chart-line text-xl mb-1.5"></i><span class="text-[10px] font-bold">التقارير</span></button>
+    </nav>
+
+    <script>
+        // --- 1. إدارة البيانات ---
+        const defaultState = {
+            animalTypes: ['نعيمي', 'نجدي', 'حري', 'سواكني', 'ماعز', 'تيوس'],
+            expenseItems: { 'الأعلاف': ['شعير', 'برسيم', 'مكعبات وافي'], 'الأدوية': ['مضاد حيوي', 'فيتامينات', 'إبر جرب'], 'المواصلات والعمالة': ['دينا نقل', 'راتب راعي', 'بنزين'], 'أخرى': ['أدوات تنظيف'] },
+            counters: { pur: 1001, bir: 2001 },
+            purchases: [], sales: [], expenses: [], mortality: [], births: [], medicalNotes: []
+        };
+        let state = JSON.parse(localStorage.getItem('marai_db_v5')) || defaultState;
+
+        function saveState() {
+            localStorage.setItem('marai_db_v5', JSON.stringify(state));
+            updateUI();
+        }
+
+        // --- 2. محرك الأعمار التلقائي (Dynamic Age Logic) ---
+        const ageStages = [
+            { name: 'رضيع', months: 0 },
+            { name: 'جذع', months: 6 },
+            { name: 'ثني', months: 12 },
+            { name: 'رباع', months: 24 },
+            { name: 'سديس', months: 36 },
+            { name: 'جامع', months: 48 }
+        ];
+
+        function calculateCurrentAge(entryDateStr, initialStageName) {
+            const entryDate = new Date(entryDateStr);
+            const now = new Date();
+            const diffMonths = (now.getFullYear() - entryDate.getFullYear()) * 12 + (now.getMonth() - entryDate.getMonth());
+            
+            const initialMonths = ageStages.find(s => s.name === initialStageName)?.months || 0;
+            const totalMonths = initialMonths + diffMonths;
+            
+            let currentStage = ageStages[0].name;
+            for(let i = ageStages.length - 1; i >= 0; i--) {
+                if(totalMonths >= ageStages[i].months) {
+                    currentStage = ageStages[i].name;
+                    break;
+                }
+            }
+            return currentStage;
+        }
+
+        // --- 3. التنقل والسحب ---
+        const tabs = ['dashboard', 'purchases', 'expenses', 'births', 'sales', 'reports'];
+        let currentTab = 'dashboard';
+        
+        function switchTab(tabId) {
+            currentTab = tabId;
+            document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.nav-btn[data-target="${tabId}"]`).classList.add('active');
+            
+            const titles = { dashboard: 'لوحة المتابعة', purchases: 'إدارة المخزون', expenses: 'المصروفات والنفوق', births: 'سجل المواليد', sales: 'المبيعات', reports: 'التقارير والإقرارات' };
+            document.getElementById('header-subtitle').innerText = titles[tabId];
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if(tabId === 'reports') generateReports(); 
+        }
+
+        let touchStartX = 0, touchEndX = 0;
+        document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            if (!document.getElementById('inventory-modal').classList.contains('hidden') || !document.getElementById('profile-modal').classList.contains('hidden')) return;
+            const threshold = 80;
+            const idx = tabs.indexOf(currentTab);
+            if (touchStartX - touchEndX > threshold && idx > 0) switchTab(tabs[idx - 1]);
+            else if (touchEndX - touchStartX > threshold && idx < tabs.length - 1) switchTab(tabs[idx + 1]);
+        }, {passive: true});
+
+        // --- 4. الواجهة والمساعدات ---
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            document.getElementById('toast-icon').className = isError ? "fa-solid fa-circle-exclamation text-rose-500 text-lg" : "fa-solid fa-circle-check text-emerald-400 text-lg";
+            t.classList.remove('opacity-0');
+            setTimeout(() => t.classList.add('opacity-0'), 2500);
+        }
+
+        function formatMoney(num) { return Number(num).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+
+        function openInventory() {
+            updateInventoryModal();
+            document.getElementById('inventory-modal').classList.remove('hidden');
+        }
+        function closeInventory() { document.getElementById('inventory-modal').classList.add('hidden'); }
+
+        function populateSelects() {
+            const selects = ['pur-type', 'mort-type', 'bir-type', 'sale-type'];
+            const optionsHtml = state.animalTypes.map(t => `<option value="${t}">${t}</option>`).join('') + `<option value="أخرى">أخرى (جديد)</option>`;
+            
+            selects.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    const val = el.value;
+                    el.innerHTML = id === 'pur-type' ? optionsHtml : state.animalTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+                    if(state.animalTypes.includes(val)) el.value = val;
+                }
+            });
+            document.getElementById('pur-serial').innerText = `#PUR-${state.counters.pur}`;
+            document.getElementById('bir-serial').innerText = `#BIR-${state.counters.bir}`;
+            document.getElementById('mort-date').valueAsDate = new Date();
+            updateExpDatalist();
+        }
+
+        function toggleCustomType(prefix) {
+            const sel = document.getElementById(`${prefix}-type`).value;
+            const inp = document.getElementById(`${prefix}-custom-type`);
+            if(sel === 'أخرى') { inp.classList.remove('hidden'); inp.required = true; } 
+            else { inp.classList.add('hidden'); inp.required = false; }
+        }
+
+        function updateExpDatalist() {
+            const cat = document.getElementById('exp-category').value;
+            const items = state.expenseItems[cat] || [];
+            document.getElementById('exp-suggestions').innerHTML = items.map(i => `<option value="${i}">`).join('');
+            document.getElementById('exp-item').value = '';
+        }
+
+        function calcPurTotal() { document.getElementById('pur-total').value = (Number(document.getElementById('pur-count').value) || 0) * (Number(document.getElementById('pur-price').value) || 0); }
+        function calcSaleTotal() { document.getElementById('sale-total').value = (Number(document.getElementById('sale-count').value) || 0) * (Number(document.getElementById('sale-price').value) || 0); }
+
+        function calculateInventory() {
+            let inv = {};
+            state.animalTypes.forEach(t => inv[t] = 0);
+            state.purchases.forEach(p => inv[p.type] = (inv[p.type] || 0) + p.count);
+            state.births.forEach(b => inv[b.type] = (inv[b.type] || 0) + b.count);
+            state.sales.forEach(s => inv[s.type] -= s.count);
+            state.mortality.forEach(m => inv[m.type] -= m.count);
+            return inv;
+        }
+
+        // --- 5. الملف الشخصي والباركود (Animal Profile) ---
+        let currentQRCode = null;
+
+        function openProfile(serial) {
+            const item = state.purchases.find(p => p.serial === serial) || state.births.find(b => b.serial === serial);
+            if(!item) return;
+
+            const isBirth = serial.startsWith('BIR');
+            const age = calculateCurrentAge(item.date, item.age || 'رضيع');
+            const price = item.price || 0;
+            
+            document.getElementById('prof-type').innerText = item.type;
+            document.getElementById('prof-serial').innerText = `#${serial}`;
+            document.getElementById('prof-age').innerText = age;
+            document.getElementById('prof-price').innerText = `${price} ﷼`;
+            document.getElementById('prof-date').innerText = item.date;
+            document.getElementById('prof-count').innerText = `${item.count} رأس`;
+            document.getElementById('prof-hidden-serial').value = serial;
+
+            // بناء النص الذي سيتم تخزينه في الـ QR Code
+            let qrData = `مراعي لإدارة الحلال\n`;
+            qrData += `الدفعة: ${serial}\nالنوع: ${item.type}\nالعمر: ${age}\n`;
+            qrData += `التاريخ: ${item.date}\nالعدد: ${item.count} رأس\n`;
+            if(!isBirth) qrData += `السعر للرأس: ${price} ﷼\n`;
+
+            // توليد QR Code
+            const qrContainer = document.getElementById('qrcode-container');
+            qrContainer.innerHTML = ''; // مسح القديم
+            currentQRCode = new QRCode(qrContainer, {
+                text: qrData,
+                width: 120,
+                height: 120,
+                colorDark : "#1c1917",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            updateMedicalList(serial);
+            document.getElementById('profile-modal').classList.remove('hidden');
+        }
+
+        function closeProfile() {
+            document.getElementById('profile-modal').classList.add('hidden');
+        }
+
+        function updateMedicalList(serial) {
+            const notes = (state.medicalNotes || []).filter(n => n.serial === serial).sort((a,b) => b.id - a.id);
+            const listHtml = notes.map(n => `
+                <div class="bg-stone-50 p-2 rounded-xl border border-stone-200 flex justify-between items-center">
+                    <span class="text-sm font-bold text-stone-700">${n.text}</span>
+                    <span class="text-[10px] text-stone-400 font-mono">${n.date}</span>
+                </div>
+            `).join('');
+            document.getElementById('prof-medical-list').innerHTML = listHtml || '<p class="text-center text-xs text-stone-400 italic">لا توجد سجلات طبية</p>';
+        }
+
+        document.getElementById('form-medical-note').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const serial = document.getElementById('prof-hidden-serial').value;
+            const text = document.getElementById('prof-new-note').value.trim();
+            if(!text) return;
+            
+            if(!state.medicalNotes) state.medicalNotes = [];
+            state.medicalNotes.push({ id: Date.now(), serial, text, date: new Date().toISOString().split('T')[0] });
+            
+            e.target.reset();
+            saveState();
+            updateMedicalList(serial);
+            
+            // تحديث بيانات الـ QR لتشمل التحديث الطبي الجديد (إذا أردت، لكن يفضل بقاء الـ QR للبيانات الأساسية لعدم زيادة حجمه)
+        });
+
+        function printProfile() {
+            const profContent = document.querySelector('#profile-modal > div').cloneNode(true);
+            profContent.querySelector('#form-medical-note').remove(); // إزالة نموذج الإضافة عند الطباعة
+            profContent.querySelector('button[onclick="closeProfile()"]').remove();
+            profContent.querySelector('button[onclick="printProfile()"]').remove();
+            
+            profContent.classList.remove('max-h-[90vh]', 'overflow-y-auto', 'shadow-2xl');
+            profContent.style.boxShadow = 'none';
+            profContent.style.border = '1px solid #ccc';
+            
+            const container = document.getElementById('profile-print-container');
+            container.innerHTML = '<div style="text-align: center; margin-bottom: 20px;"><h2 style="font-size: 24px; font-family: Tajawal;">بطاقة تعريف الماشية - مراعي</h2></div>';
+            container.appendChild(profContent);
+            
+            document.body.classList.add('printing-profile');
+            window.print();
+            setTimeout(() => document.body.classList.remove('printing-profile'), 1000);
+        }
+
+        // --- 6. طباعة الأوسام (Ear Tags) ---
+        function printEarTags(serial, type, count) {
+            const colors = { 'نعيمي': '#dc2626', 'نجدي': '#2563eb', 'حري': '#16a34a', 'سواكني': '#d97706', 'ماعز': '#9333ea', 'تيوس': '#475569' };
+            const color = colors[type] || '#374151';
+            
+            let html = `<div style="text-align: center; margin-bottom: 30px;"><h2 style="font-size: 30px; font-family: 'Tajawal', sans-serif;">طباعة أوسام (${type}) - دفعة ${serial}</h2></div>`;
+            html += `<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">`;
+            
+            for(let i=1; i<=count; i++) {
+                let formattedSerial = `${serial}-${String(i).padStart(4, '0')}`;
+                html += `
+                <div style="border: 4px solid ${color}; border-radius: 15px; padding: 25px; text-align: center; font-family: sans-serif; box-shadow: 2px 2px 10px rgba(0,0,0,0.1);">
+                    <div style="font-size: 24px; font-weight: 900; color: ${color}; margin-bottom: 10px; font-family: 'Tajawal', sans-serif;">مـراعي</div>
+                    <div style="font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #374151;">${type}</div>
+                    <div style="font-size: 26px; font-weight: bold; background: #f3f4f6; padding: 10px; border-radius: 8px; letter-spacing: 2px;">${formattedSerial}</div>
+                </div>`;
+            }
+            html += `</div>`;
+            
+            document.getElementById('tags-print-container').innerHTML = html;
+            document.body.classList.add('printing-tags');
+            window.print();
+            setTimeout(() => document.body.classList.remove('printing-tags'), 1000);
+        }
+
+        // --- 7. النماذج ---
+        document.getElementById('form-purchase').addEventListener('submit', (e) => {
+            e.preventDefault();
+            let type = document.getElementById('pur-type').value;
+            if (type === 'أخرى') {
+                type = document.getElementById('pur-custom-type').value.trim();
+                if(!type) return showToast('اكتب اسم النوع!', true);
+                if(!state.animalTypes.includes(type)) state.animalTypes.push(type);
+            }
+            state.purchases.unshift({ 
+                id: Date.now(), serial: `PUR-${state.counters.pur++}`, source: document.getElementById('pur-source').value, 
+                type: type, age: document.getElementById('pur-age').value, count: Number(document.getElementById('pur-count').value), 
+                price: Number(document.getElementById('pur-price').value), total: Number(document.getElementById('pur-total').value), date: new Date().toISOString().split('T')[0] 
+            });
+            e.target.reset(); toggleCustomType('pur'); saveState(); showToast('تم حفظ المشتريات');
+        });
+
+        document.getElementById('form-mortality').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const type = document.getElementById('mort-type').value;
+            const count = Number(document.getElementById('mort-count').value);
+            if(count > (calculateInventory()[type] || 0)) return showToast(`العدد يتجاوز المخزون لـ ${type}`, true);
+            state.mortality.unshift({ id: Date.now(), type, count, date: document.getElementById('mort-date').value, reason: document.getElementById('mort-reason').value || 'غير محدد' });
+            e.target.reset(); document.getElementById('mort-date').valueAsDate = new Date(); saveState(); showToast('تم خصم النافق');
+        });
+
+        document.getElementById('form-expense').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const cat = document.getElementById('exp-category').value;
+            const item = document.getElementById('exp-item').value.trim();
+            if(!state.expenseItems[cat].includes(item) && item !== "") state.expenseItems[cat].push(item);
+            state.expenses.unshift({ 
+                id: Date.now(), cat, item, 
+                qty: document.getElementById('exp-qty').value ? Number(document.getElementById('exp-qty').value) : null,
+                amount: Number(document.getElementById('exp-amount').value), date: new Date().toISOString().split('T')[0] 
+            });
+            e.target.reset(); updateExpDatalist(); saveState(); showToast('تم حفظ المصروف');
+        });
+
+        document.getElementById('form-birth').addEventListener('submit', (e) => {
+            e.preventDefault();
+            state.births.unshift({ id: Date.now(), serial: `BIR-${state.counters.bir++}`, type: document.getElementById('bir-type').value, age: 'رضيع', count: Number(document.getElementById('bir-count').value), date: new Date().toISOString().split('T')[0] });
+            e.target.reset(); saveState(); showToast('تم تسجيل المواليد');
+        });
+
+        document.getElementById('form-sale').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const type = document.getElementById('sale-type').value;
+            const count = Number(document.getElementById('sale-count').value);
+            if(count > (calculateInventory()[type] || 0)) return showToast(`المخزون لا يكفي لـ ${type}`, true);
+            state.sales.unshift({ id: Date.now(), type, count, price: Number(document.getElementById('sale-price').value), total: Number(document.getElementById('sale-total').value), date: new Date().toISOString().split('T')[0] });
+            e.target.reset(); saveState(); showToast('تم تسجيل البيع');
+        });
+
+        // --- 8. تحديث الواجهة ---
+        function updateUI() {
+            populateSelects();
+            const inv = calculateInventory();
+            
+            const totalHead = Object.values(inv).reduce((a, b) => a + b, 0);
+            const totalPur = state.purchases.reduce((a, b) => a + b.total, 0);
+            const totalExp = state.expenses.reduce((a, b) => a + b.amount, 0);
+            const totalSales = state.sales.reduce((a, b) => a + b.total, 0);
+            const profit = totalSales - (totalPur + totalExp);
+            
+            // احصائيات البطاقة السوداء
+            const totalBirths = state.births.reduce((a, b) => a + b.count, 0);
+            const totalSold = state.sales.reduce((a, b) => a + b.count, 0);
+            const totalDead = state.mortality.reduce((a, b) => a + b.count, 0);
+
+            document.getElementById('dash-herd').innerText = formatMoney(totalHead);
+            document.getElementById('dash-total-births').innerText = formatMoney(totalBirths);
+            document.getElementById('dash-total-sold').innerText = formatMoney(totalSold);
+            document.getElementById('dash-total-dead').innerText = formatMoney(totalDead);
+            
+            document.getElementById('dash-capital').innerText = formatMoney(totalPur);
+            document.getElementById('dash-sales').innerText = formatMoney(totalSales);
+            document.getElementById('dash-costs').innerText = formatMoney(totalPur + totalExp);
+            document.getElementById('dash-profit').innerText = formatMoney(profit);
+            
+            const pCard = document.getElementById('profit-card');
+            if(profit < 0) { pCard.classList.remove('from-emerald-600', 'to-green-800'); pCard.classList.add('from-rose-600', 'to-red-800'); }
+            else { pCard.classList.remove('from-rose-600', 'to-red-800'); pCard.classList.add('from-emerald-600', 'to-green-800'); }
+
+            const renderListItem = (icon, bg, title, sub, val, actionsHtml = '') => `
+                <div class="bg-white p-4 rounded-3xl border border-stone-100 flex justify-between items-center shadow-sm mb-3 relative group">
+                    <div class="flex gap-4 items-center">
+                        <div class="w-12 h-12 rounded-2xl flex items-center justify-center ${bg}"><i class="${icon} text-lg"></i></div>
+                        <div><h4 class="text-sm font-black text-stone-800">${title}</h4><p class="text-[10px] font-bold text-stone-500 mt-1">${sub}</p></div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="text-sm font-black text-stone-800 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-100">${val}</div>
+                        ${actionsHtml}
+                    </div>
+                </div>`;
+            
+            // المشتريات
+            document.getElementById('list-purchases').innerHTML = state.purchases.slice(0,6).map(p => {
+                const currentAge = calculateCurrentAge(p.date, p.age || 'جذع');
+                const actions = `
+                    <button onclick="openProfile('${p.serial}')" class="text-blue-500 hover:text-blue-700 bg-blue-50 w-8 h-8 rounded-full flex items-center justify-center transition-colors" title="الملف والباركود"><i class="fa-solid fa-id-card"></i></button>
+                    <button onclick="printEarTags('${p.serial}', '${p.type}', ${p.count})" class="text-stone-400 hover:text-stone-800 bg-stone-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors" title="طباعة الأوسام"><i class="fa-solid fa-tags"></i></button>
+                `;
+                return renderListItem('fa-solid fa-truck-ramp-box', 'bg-purple-50 text-purple-600', `${p.count} رأس - ${p.type} (${currentAge})`, `#${p.serial} • ${p.date}`, `${formatMoney(p.total)} ﷼`, actions);
+            }).join('') || '<p class="text-center text-stone-400 py-4 italic">لا يوجد مشتريات</p>';
+            
+            // العمليات (المصروفات والنفوق)
+            const ops = [...state.expenses.map(e=>({...e, _t:'exp'})), ...state.mortality.map(m=>({...m, _t:'mort'}))].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,6);
+            document.getElementById('list-operations').innerHTML = ops.map(o => {
+                if(o._t === 'exp') {
+                    const qtyTxt = o.qty ? ` • الكمية: ${o.qty}` : '';
+                    return renderListItem('fa-solid fa-receipt', 'bg-orange-50 text-orange-600', `${o.cat} - ${o.item}`, `${o.date}${qtyTxt}`, `${formatMoney(o.amount)} ﷼`);
+                } else {
+                    return renderListItem('fa-solid fa-skull', 'bg-rose-50 text-rose-600', `نفوق ${o.count} - ${o.type}`, `السبب: ${o.reason} • ${o.date}`, `خصم`);
+                }
+            }).join('') || '<p class="text-center text-stone-400 py-4 italic">لا يوجد عمليات</p>';
+            
+            // المواليد
+            document.getElementById('list-births').innerHTML = state.births.slice(0,6).map(b => {
+                const currentAge = calculateCurrentAge(b.date, 'رضيع');
+                const actions = `
+                    <button onclick="openProfile('${b.serial}')" class="text-blue-500 hover:text-blue-700 bg-blue-50 w-8 h-8 rounded-full flex items-center justify-center transition-colors" title="الملف والباركود"><i class="fa-solid fa-id-card"></i></button>
+                    <button onclick="printEarTags('${b.serial}', '${b.type}', ${b.count})" class="text-stone-400 hover:text-stone-800 bg-stone-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors" title="طباعة الأوسام"><i class="fa-solid fa-tags"></i></button>
+                `;
+                return renderListItem('fa-solid fa-baby', 'bg-blue-50 text-blue-600', `مواليد ${b.type} (${currentAge})`, `#${b.serial} • ${b.date}`, `${b.count} رأس`, actions);
+            }).join('') || '<p class="text-center text-stone-400 py-4 italic">لا يوجد مواليد</p>';
+            
+            document.getElementById('list-sales').innerHTML = state.sales.slice(0,6).map(s => renderListItem('fa-solid fa-cart-shopping', 'bg-emerald-50 text-emerald-600', `بيع ${s.count} - ${s.type}`, s.date, `${formatMoney(s.total)} ﷼`)).join('') || '<p class="text-center text-stone-400 py-4 italic">لا يوجد مبيعات</p>';
+        }
+
+        function updateInventoryModal() {
+            const inv = calculateInventory();
+            let html = '';
+            for(const [type, count] of Object.entries(inv)) {
+                if(count > 0) html += `<div class="bg-stone-50 p-4 rounded-2xl flex justify-between items-center border border-stone-200"><span class="font-black text-stone-800 text-lg">${type}</span><div class="text-left font-black"><span class="text-2xl text-green-700 ml-1">${count}</span><span class="text-xs text-stone-500">رأس</span></div></div>`;
+            }
+            document.getElementById('inventory-list').innerHTML = html || '<p class="text-center text-stone-400 italic font-bold">القطيع فارغ حالياً</p>';
+        }
+
+        // --- 9. التقارير ---
+        let charts = {};
+        function toggleCustomDates() {
+            const filter = document.getElementById('report-timeframe').value;
+            const container = document.getElementById('custom-date-container');
+            if (filter === 'custom') { container.classList.remove('hidden'); container.classList.add('grid'); } 
+            else { container.classList.add('hidden'); container.classList.remove('grid'); }
+        }
+
+        function generateReports() {
+            const timeframe = document.getElementById('report-timeframe').value;
+            const rType = document.getElementById('report-type').value;
+            const rDetail = document.getElementById('report-detail').value;
+            
+            const customFrom = document.getElementById('custom-date-from').value;
+            const customTo = document.getElementById('custom-date-to').value;
+            const now = new Date(); const y = now.getFullYear();
+
+            const checkDate = (dString) => {
+                if(timeframe === 'all') return true;
+                const d = new Date(dString);
+                if(timeframe === 'today') return d.toDateString() === now.toDateString();
+                if(timeframe === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === y;
+                if(timeframe === 'year') return d.getFullYear() === y;
+                if(timeframe === 'q1') return d.getFullYear() === y && d.getMonth() >= 0 && d.getMonth() <= 2;
+                if(timeframe === 'q2') return d.getFullYear() === y && d.getMonth() >= 3 && d.getMonth() <= 5;
+                if(timeframe === 'q3') return d.getFullYear() === y && d.getMonth() >= 6 && d.getMonth() <= 8;
+                if(timeframe === 'q4') return d.getFullYear() === y && d.getMonth() >= 9 && d.getMonth() <= 11;
+                if(timeframe === 'custom') {
+                    if(!customFrom || !customTo) return true;
+                    return d >= new Date(customFrom) && d <= new Date(customTo);
+                }
+                return true;
+            };
+
+            const fSales = state.sales.filter(s => checkDate(s.date));
+            const fPur = state.purchases.filter(p => checkDate(p.date));
+            const fExp = state.expenses.filter(e => checkDate(e.date));
+            const fBir = state.births.filter(b => checkDate(b.date));
+            const fMor = state.mortality.filter(m => checkDate(m.date));
+
+            const tSales = fSales.reduce((a,b)=>a+b.total, 0);
+            const tPur = fPur.reduce((a,b)=>a+b.total, 0);
+            const tExp = fExp.reduce((a,b)=>a+b.amount, 0);
+            const tCosts = tPur + tExp;
+            const tProfit = tSales - tCosts;
+            const roi = tCosts > 0 ? ((tProfit / tCosts) * 100).toFixed(1) : (tSales > 0 ? 100 : 0);
+
+            let periodText = document.getElementById('report-timeframe').options[document.getElementById('report-timeframe').selectedIndex].text;
+            if(timeframe === 'custom' && customFrom && customTo) periodText = `من ${customFrom} إلى ${customTo}`;
+            const titles = { 'comprehensive': 'التقرير المالي والتحليلي الشامل', 'tax': 'التقرير الضريبي (المبيعات والمشتريات)', 'zakat': 'تقرير الزكاة (الحول وتقييم المخزون)' };
+            document.getElementById('print-title').innerText = `مراعي - ${titles[rType]}`;
+            document.getElementById('print-date').innerText = `الفترة: ${periodText}`;
+
+            const dCards = document.getElementById('dynamic-cards');
+            const dCharts = document.getElementById('dynamic-charts');
+            const dTables = document.getElementById('detailed-tables-container');
+            dTables.style.display = (rDetail === 'summary') ? 'none' : 'block';
+
+            if (rType === 'comprehensive') {
+                dCards.innerHTML = `
+                    <div class="bg-emerald-50 p-6 rounded-[1.5rem] border border-emerald-100 text-center shadow-sm"><p class="text-[11px] font-black text-emerald-700 uppercase mb-3">إجمالي المبيعات</p><p class="text-2xl font-black text-emerald-900">${formatMoney(tSales)} <span class="text-sm">﷼</span></p></div>
+                    <div class="bg-rose-50 p-6 rounded-[1.5rem] border border-rose-100 text-center shadow-sm"><p class="text-[11px] font-black text-rose-700 uppercase mb-3">التكاليف والمصروفات</p><p class="text-2xl font-black text-rose-900">${formatMoney(tCosts)} <span class="text-sm">﷼</span></p></div>
+                    <div class="bg-stone-50 p-6 rounded-[1.5rem] border border-stone-200 text-center shadow-sm"><p class="text-[11px] font-black text-stone-600 uppercase mb-3">صافي الربح / الخسارة</p><p class="text-2xl font-black text-stone-800" dir="ltr">${formatMoney(tProfit)} <span class="text-sm">﷼</span></p></div>
+                    <div class="bg-blue-50 p-6 rounded-[1.5rem] border border-blue-100 text-center shadow-sm"><p class="text-[11px] font-black text-blue-700 uppercase mb-3">عائد الاستثمار (ROI)</p><p class="text-2xl font-black text-blue-900" dir="ltr">${roi}%</p></div>
+                `;
+                dCharts.innerHTML = `
+                    <div class="bg-white p-6 rounded-[2rem] border border-stone-200 shadow-sm"><h4 class="text-base font-black text-stone-700 mb-6 flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-green-600"></i> التدفق النقدي للفترة</h4><div class="relative h-[250px] w-full"><canvas id="chart-comp-1"></canvas></div></div>
+                    <div class="bg-white p-6 rounded-[2rem] border border-stone-200 shadow-sm"><h4 class="text-base font-black text-stone-700 mb-6 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-orange-500"></i> تفصيل التكاليف والمصروفات</h4><div class="relative h-[250px] w-full flex justify-center"><canvas id="chart-comp-2"></canvas></div></div>
+                `;
+                const inv = calculateInventory(); 
+                let herdHtml = '';
+                state.animalTypes.forEach(type => {
+                    const pC = fPur.filter(p=>p.type===type).reduce((a,b)=>a+b.count,0);
+                    const sC = fSales.filter(s=>s.type===type).reduce((a,b)=>a+b.count,0);
+                    const bC = fBir.filter(b=>b.type===type).reduce((a,b)=>a+b.count,0);
+                    const mC = fMor.filter(m=>m.type===type).reduce((a,b)=>a+b.count,0);
+                    const rC = inv[type] || 0;
+                    if(pC || sC || bC || mC || rC) {
+                        herdHtml += `<tr class="border-b border-stone-100 hover:bg-stone-50"><td class="p-4 font-black text-stone-800 text-right">${type}</td><td class="p-4 text-purple-700 font-bold">${pC}</td><td class="p-4 text-blue-700 font-bold">${bC}</td><td class="p-4 text-emerald-700 font-bold">${sC}</td><td class="p-4 text-rose-600 font-bold">${mC}</td><td class="p-4 text-stone-900 font-black bg-stone-100/50">${rC}</td></tr>`;
+                    }
+                });
+                
+                let expHtml = '';
+                const cats = ['الأعلاف', 'الأدوية', 'المواصلات والعمالة', 'أخرى'];
+                cats.forEach(cat => {
+                    const cExp = fExp.filter(e=>e.cat===cat);
+                    const sum = cExp.reduce((a,b)=>a+b.amount,0);
+                    if(sum > 0) expHtml += `<tr class="border-b border-stone-100"><td class="p-4 font-black text-stone-800">${cat}</td><td class="p-4 text-center text-stone-500 font-bold">${cExp.length} عمليات</td><td class="p-4 font-black text-orange-700 text-left">${formatMoney(sum)} ﷼</td></tr>`;
+                });
+
+                dTables.innerHTML = `
+                    <div class="bg-white p-6 rounded-[2rem] border border-stone-200 shadow-sm page-break-inside-avoid overflow-hidden">
+                        <h3 class="text-xl font-black text-stone-800 mb-6 flex items-center gap-2"><i class="fa-solid fa-table-list text-purple-600"></i> حركة القطيع التفصيلية للفترة</h3>
+                        <div class="overflow-x-auto custom-scrollbar pb-2"><table class="w-full text-center border-collapse min-w-[700px]">
+                            <thead><tr class="bg-stone-50 text-stone-500 text-[11px] font-black uppercase tracking-widest border-b-2 border-stone-200"><th class="p-4 text-right rounded-r-2xl">نوع الماشية</th><th class="p-4 text-purple-700">مشتريات</th><th class="p-4 text-blue-700">مواليد</th><th class="p-4 text-emerald-700">مبيعات</th><th class="p-4 text-rose-600">نفوق</th><th class="p-4 text-stone-800 bg-stone-200/50 rounded-l-2xl">المتبقي بالمخزون</th></tr></thead>
+                            <tbody class="text-base font-bold text-stone-700">${herdHtml || '<tr><td colspan="6" class="text-center p-6 text-stone-400 font-bold italic">لا توجد حركة</td></tr>'}</tbody>
+                        </table></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-[2rem] border border-stone-200 shadow-sm page-break-inside-avoid overflow-hidden">
+                        <h3 class="text-xl font-black text-stone-800 mb-6 flex items-center gap-2"><i class="fa-solid fa-list-check text-orange-500"></i> كشف المصروفات التشغيلية</h3>
+                        <div class="overflow-x-auto custom-scrollbar pb-2"><table class="w-full text-right border-collapse min-w-[500px]">
+                            <thead><tr class="bg-stone-50 text-stone-500 text-[11px] font-black uppercase tracking-widest border-b-2 border-stone-200"><th class="p-4 rounded-r-2xl">بند الصرف (النوع)</th><th class="p-4 text-center">عدد العمليات</th><th class="p-4 rounded-l-2xl text-left">إجمالي التكلفة للفترة</th></tr></thead>
+                            <tbody class="text-base font-bold text-stone-700">${expHtml || '<tr><td colspan="3" class="text-center p-6 text-stone-400 font-bold italic">لا توجد مصروفات</td></tr>'}</tbody>
+                        </table></div>
+                    </div>
+                `;
+
+                if(charts.c1) charts.c1.destroy(); if(charts.c2) charts.c2.destroy();
+                Chart.defaults.font.family = 'Tajawal';
+                charts.c1 = new Chart(document.getElementById('chart-comp-1'), { type: 'bar', data: { labels: ['السيولة المالية'], datasets: [ { label: 'المبيعات (دخول)', data: [tSales], backgroundColor: '#10b981', borderRadius: 8 }, { label: 'التكاليف (خروج)', data: [tCosts], backgroundColor: '#f43f5e', borderRadius: 8 } ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: {font:{weight:'bold'}} } } } });
+                const expData = { 'الأعلاف':0, 'الأدوية':0, 'المواصلات والعمالة':0, 'أخرى':0 };
+                fExp.forEach(e => { if(expData[e.cat] !== undefined) expData[e.cat] += e.amount; else expData['أخرى'] += e.amount; });
+                charts.c2 = new Chart(document.getElementById('chart-comp-2'), { type: 'doughnut', data: { labels: Object.keys(expData), datasets: [{ data: Object.values(expData), backgroundColor: ['#f97316', '#3b82f6', '#8b5cf6', '#94a3b8'], borderWidth: 3, borderColor: '#ffffff' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: {font:{weight:'bold'}} } } } });
+
+            } else if (rType === 'tax') {
+                const vatSales = tSales * 0.15; const vatCosts = tCosts * 0.15; const netVat = vatSales - vatCosts;
+                dCards.innerHTML = `
+                    <div class="bg-emerald-50 p-6 rounded-[1.5rem] border border-emerald-100 text-center shadow-sm"><p class="text-[11px] font-black text-emerald-700 uppercase mb-3">مبيعات (بدون ضريبة)</p><p class="text-2xl font-black text-emerald-900">${formatMoney(tSales)} <span class="text-sm">﷼</span></p></div>
+                    <div class="bg-emerald-100/50 p-6 rounded-[1.5rem] border border-emerald-200 text-center shadow-sm"><p class="text-[11px] font-black text-emerald-800 uppercase mb-3">ضريبة المخرجات (15%)</p><p class="text-2xl font-black text-emerald-900">${formatMoney(vatSales)} <span class="text-sm">﷼</span></p></div>
+                    <div class="bg-rose-50 p-6 rounded-[1.5rem] border border-rose-100 text-center shadow-sm"><p class="text-[11px] font-black text-rose-700 uppercase mb-3">المشتريات والمصروفات</p><p class="text-2xl font-black text-rose-900">${formatMoney(tCosts)} <span class="text-sm">﷼</span></p></div>
+                    <div class="bg-rose-100/50 p-6 rounded-[1.5rem] border border-rose-200 text-center shadow-sm"><p class="text-[11px] font-black text-rose-800 uppercase mb-3">ضريبة المدخلات (15%)</p><p class="text-2xl font-black text-rose-900">${formatMoney(vatCosts)} <span class="text-sm">﷼</span></p></div>
+                    <div class="col-span-2 md:col-span-4 bg-stone-800 text-white p-6 rounded-[1.5rem] text-center shadow-md flex justify-between items-center px-10 mt-2"><p class="text-sm font-black uppercase tracking-widest">صافي الضريبة المستحقة</p><p class="text-3xl font-black" dir="ltr">${formatMoney(netVat)} <span class="text-sm opacity-70">﷼</span></p></div>
+                `;
+                dCharts.innerHTML = `<div class="col-span-1 md:col-span-2 bg-white p-6 rounded-[2rem] border border-stone-200 shadow-sm"><h4 class="text-base font-black text-stone-700 mb-6 flex items-center gap-2"><i class="fa-solid fa-file-invoice text-blue-500"></i> ميزان الإقرار الضريبي</h4><div class="relative h-[250px] w-full"><canvas id="chart-tax"></canvas></div></div>`;
+                dTables.innerHTML = '';
+                if(charts.c1) charts.c1.destroy(); if(charts.c2) charts.c2.destroy();
+                Chart.defaults.font.family = 'Tajawal';
+                charts.c1 = new Chart(document.getElementById('chart-tax'), { type: 'bar', data: { labels: ['ضريبة المبيعات (لك)', 'ضريبة التكاليف (عليك)', 'الصافي'], datasets: [{ label: 'القيمة الضريبية (﷼)', data: [vatSales, vatCosts, netVat], backgroundColor: ['#10b981', '#f43f5e', '#3b82f6'], borderRadius: 8 }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+
+            } else if (rType === 'zakat') {
+                const inv = calculateInventory(); 
+                let totalInvValue = 0; let invDetailsHtml = ''; let totalHeads = 0; const zakatData = { labels: [], values: [] };
+                state.animalTypes.forEach(type => {
+                    const count = inv[type] || 0;
+                    if(count > 0) {
+                        totalHeads += count;
+                        const typePurs = state.purchases.filter(p => p.type === type);
+                        const avgPrice = typePurs.length ? (typePurs.reduce((a,b)=>a+b.total, 0) / typePurs.reduce((a,b)=>a+b.count, 0)) : 0; 
+                        const val = count * avgPrice;
+                        totalInvValue += val; zakatData.labels.push(type); zakatData.values.push(val);
+                        invDetailsHtml += `<tr class="border-b border-stone-100"><td class="p-4 font-black text-stone-800 text-right">${type}</td><td class="p-4 text-stone-600 font-bold">${count} رأس</td><td class="p-4 text-stone-600 font-bold">${formatMoney(avgPrice)} ﷼</td><td class="p-4 font-black text-purple-700 text-left">${formatMoney(val)} ﷼</td></tr>`;
+                    }
+                });
+                const zakatDue = totalInvValue * 0.025;
+
+                dCards.innerHTML = `
+                    <div class="bg-stone-50 p-6 rounded-[1.5rem] border border-stone-200 text-center shadow-sm"><p class="text-[11px] font-black text-stone-600 uppercase mb-3">القطيع (العدد)</p><p class="text-2xl font-black text-stone-900">${totalHeads} <span class="text-sm">رأس</span></p></div>
+                    <div class="bg-purple-50 p-6 rounded-[1.5rem] border border-purple-100 text-center shadow-sm"><p class="text-[11px] font-black text-purple-700 uppercase mb-3">القيمة التقديرية (عروض)</p><p class="text-2xl font-black text-purple-900">${formatMoney(totalInvValue)} <span class="text-sm">﷼</span></p></div>
+                    <div class="bg-stone-800 p-6 rounded-[1.5rem] border border-stone-700 text-center shadow-sm text-white"><p class="text-[11px] font-black text-stone-400 uppercase mb-3">نسبة زكاة التجارة</p><p class="text-2xl font-black" dir="ltr">2.5%</p></div>
+                    <div class="bg-blue-50 p-6 rounded-[1.5rem] border border-blue-200 text-center shadow-sm"><p class="text-[11px] font-black text-blue-800 uppercase mb-3">الزكاة المستحقة</p><p class="text-2xl font-black text-blue-700">${formatMoney(zakatDue)} <span class="text-sm">﷼</span></p></div>
+                `;
+                dCharts.innerHTML = `<div class="col-span-1 md:col-span-2 bg-white p-6 rounded-[2rem] border border-stone-200 shadow-sm"><h4 class="text-base font-black text-stone-700 mb-6 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-purple-500"></i> توزيع قيمة المخزون</h4><div class="relative h-[250px] w-full flex justify-center"><canvas id="chart-zakat"></canvas></div></div>`;
+                dTables.innerHTML = `<div class="bg-white p-6 rounded-[2rem] border border-stone-200 shadow-sm page-break-inside-avoid overflow-hidden"><h3 class="text-xl font-black text-stone-800 mb-6 flex items-center gap-2"><i class="fa-solid fa-boxes-stacked text-stone-500"></i> تقييم المخزون للحول</h3><div class="overflow-x-auto custom-scrollbar pb-2"><table class="w-full text-right border-collapse min-w-[600px]"><thead><tr class="bg-stone-50 text-stone-500 text-[11px] font-black uppercase tracking-widest border-b-2 border-stone-200"><th class="p-4 rounded-r-2xl">النوع</th><th class="p-4">العدد</th><th class="p-4">متوسط التكلفة</th><th class="p-4 rounded-l-2xl text-left">إجمالي القيمة التقديرية</th></tr></thead><tbody class="text-base font-bold text-stone-700">${invDetailsHtml || '<tr><td colspan="4" class="text-center p-6 text-stone-400 font-bold italic">المخزون فارغ</td></tr>'}</tbody></table></div></div>`;
+                
+                if(charts.c1) charts.c1.destroy(); if(charts.c2) charts.c2.destroy();
+                Chart.defaults.font.family = 'Tajawal';
+                if(zakatData.values.length > 0) {
+                    charts.c1 = new Chart(document.getElementById('chart-zakat'), { type: 'pie', data: { labels: zakatData.labels, datasets: [{ data: zakatData.values, backgroundColor: ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#64748b'], borderWidth: 2, borderColor: '#ffffff' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: {font:{weight:'bold'}} } } } });
+                }
+            }
+        }
+
+        window.onload = () => { updateUI(); generateReports(); };
+    </script>
+</body>
+</html>
